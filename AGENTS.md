@@ -126,7 +126,7 @@
 - 测试：`composer test` 跑全部；`php vendor/bin/phpunit --testsuite unit|integration|feature` 分套件运行。测试库为 `class_app_test`（每次运行自动重建表结构；功能测试自动启动 `php -S 127.0.0.1:8123`）。
 - 数据库初始化：`php scripts/install_db.php`（幂等，只建表）；账号创建：`php scripts/create_admin.php` / `php scripts/create_student.php`。
 - 本机配置：`config/config.local.php`（gitignore，真实凭证只放这里）；通用默认在 `config/config.php`，可被环境变量 `DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASS` 覆盖。
-- 部署目标：Nginx + PHP-FPM，`public/` 为站点根目录，`storage/` 在公开目录之外。
+- 部署目标：Nginx + PHP-FPM，`public/` 为站点根目录，`storage/` 在公开目录之外。**云主机部署步骤见 `部署说明.md`**（环境、Nginx/PHP 配置、HTTPS、cron 备份与孤立文件清理、安全清单、冒烟验证）。
 - 运维要求：定期同时备份 MySQL 与 `storage/courses/`；异地/对象存储备份；监控磁盘空间。
 
 ## 开发顺序（需求方案规定）
