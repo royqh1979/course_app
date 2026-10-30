@@ -8,6 +8,7 @@ use App\Repositories\AssignmentRepository;
 use App\Repositories\AttachmentRepository;
 use App\Repositories\CourseRepository;
 use App\Repositories\FileRepository;
+use App\Repositories\GroupRepository;
 use App\Repositories\HandoutRepository;
 use App\Repositories\SubmissionRepository;
 use App\Services\AuthService;
@@ -29,6 +30,7 @@ final class StudentController extends BaseController
         private readonly AttachmentRepository $attachments,
         private readonly SubmissionRepository $submissions,
         private readonly FileRepository $files,
+        private readonly GroupRepository $groups,
         ?FileStorage $storage = null,
     ) {
         parent::__construct($auth);
@@ -54,6 +56,8 @@ final class StudentController extends BaseController
             'course' => $course,
             'handouts' => $this->handouts->listByCourse((int) $course['id'], true),
             'assignments' => $this->assignments->listByCourse((int) $course['id'], true),
+            'groups' => $this->groups->listByCourse((int) $course['id']),
+            'myMembership' => $this->groups->membershipInCourse((int) $course['id'], (int) $user['id']),
         ]);
     }
 
@@ -69,14 +73,25 @@ final class StudentController extends BaseController
             $this->forbidden('您没有访问该课程的权限。');
         }
 
-        $submission = $this->submissions->findByAssignmentAndStudent((int) $assignment['id'], (int) $user['id']);
+        $myGroup = null;
+        if ((bool) $assignment['is_group']) {
+            $myGroup = $this->groups->activeGroupOfStudent((int) $course['id'], (int) $user['id']);
+            $submission = $myGroup !== null
+                ? $this->submissions->findByAssignmentAndGroup((int) $assignment['id'], (int) $myGroup['id'])
+                : null;
+            $block = $this->groupSubmitBlock($course, $assignment, $myGroup, $user, $submission);
+        } else {
+            $submission = $this->submissions->findByAssignmentAndStudent((int) $assignment['id'], (int) $user['id']);
+            $block = $this->submitBlockReason($course, $assignment, $submission);
+        }
         View::render('student/assignment', [
             'title' => $assignment['title'],
             'course' => $course,
             'assignment' => $assignment,
             'attachments' => $this->attachments->listByAssignment((int) $assignment['id']),
             'submission' => $submission,
-            'submitBlock' => $this->submitBlockReason($course, $assignment, $submission),
+            'submitBlock' => $block,
+            'myGroup' => $myGroup,
         ]);
     }
 
@@ -99,8 +114,18 @@ final class StudentController extends BaseController
             $this->forbidden('您没有访问该课程的权限。');
         }
 
-        $existing = $this->submissions->findByAssignmentAndStudent((int) $assignment['id'], (int) $user['id']);
-        $block = $this->submitBlockReason($course, $assignment, $existing);
+        $isGroup = (bool) $assignment['is_group'];
+        $myGroup = null;
+        if ($isGroup) {
+            $myGroup = $this->groups->activeGroupOfStudent((int) $course['id'], (int) $user['id']);
+            $existing = $myGroup !== null
+                ? $this->submissions->findByAssignmentAndGroup((int) $assignment['id'], (int) $myGroup['id'])
+                : null;
+            $block = $this->groupSubmitBlock($course, $assignment, $myGroup, $user, $existing);
+        } else {
+            $existing = $this->submissions->findByAssignmentAndStudent((int) $assignment['id'], (int) $user['id']);
+            $block = $this->submitBlockReason($course, $assignment, $existing);
+        }
         if ($block !== null) {
             Session::flash('error', $block);
             redirect('?r=student/assignment&id=' . $assignment['id']);
@@ -108,7 +133,7 @@ final class StudentController extends BaseController
 
         $extensions = array_filter(array_map('trim', explode(',', (string) $assignment['allowed_extensions'])));
         try {
-            $resubmitted = $this->storage->transactional(function () use ($assignment, $course, $user, $existing, $extensions) {
+            $result = $this->storage->transactional(function () use ($assignment, $course, $user, $existing, $extensions, $myGroup) {
                 $meta = $this->storage->store(
                     $_FILES['file'] ?? [],
                     'courses/' . $course['id'] . '/assignments/' . $assignment['id'] . '/submissions',
@@ -116,10 +141,15 @@ final class StudentController extends BaseController
                     (int) $assignment['max_file_size']
                 );
                 // 先保存新文件并更新数据库，提交成功后旧文件引用归零才清理
-                $oldPath = Database::transaction(function () use ($meta, $assignment, $user, $existing) {
+                $oldPath = Database::transaction(function () use ($meta, $assignment, $user, $existing, $myGroup) {
                     $fileId = $this->files->create($meta);
                     if ($existing === null) {
-                        $this->submissions->insert((int) $assignment['id'], (int) $user['id'], $fileId);
+                        $this->submissions->insert(
+                            (int) $assignment['id'],
+                            (int) $user['id'],
+                            $fileId,
+                            $myGroup !== null ? (int) $myGroup['id'] : null
+                        );
                         return null;
                     }
                     $this->submissions->replace((int) $existing['id'], $fileId);
@@ -128,15 +158,48 @@ final class StudentController extends BaseController
                 if ($oldPath !== null) {
                     $this->storage->delete($oldPath);
                 }
-                return $existing !== null;
+                return ['resubmitted' => $existing !== null, 'original_name' => $meta['original_name']];
             });
         } catch (RuntimeException $e) {
+            if ($this->wantsJson()) {
+                $this->jsonResponse(false, $e->getMessage());
+            }
             Session::flash('error', $e->getMessage());
             redirect('?r=student/assignment&id=' . $assignment['id']);
         }
 
-        Session::flash('success', $resubmitted ? '已重新提交，旧文件已被替换。' : '提交成功。');
+        $message = $result['resubmitted']
+            ? "《{$result['original_name']}》上传成功，已替换旧提交。"
+            : "《{$result['original_name']}》上传成功。";
+        if ($this->wantsJson()) {
+            $this->jsonResponse(true, $message, '?r=student/assignment&id=' . $assignment['id']);
+        }
+        Session::flash('success', $message);
         redirect('?r=student/assignment&id=' . $assignment['id']);
+    }
+
+    /** 小组作业不可提交的原因；可提交返回 null */
+    private function groupSubmitBlock(array $course, array $assignment, ?array $group, array $user, ?array $submission): ?string
+    {
+        if ($submission !== null && $submission['graded_at'] !== null) {
+            return '教师已批改该作业，不能再修改提交。';
+        }
+        if ($group === null) {
+            return '小组作业需要先创建或加入小组。';
+        }
+        if ((int) $group['leader_student_id'] !== (int) $user['id']) {
+            return '只有组长能提交小组作业。';
+        }
+        $common = $this->submitBlockReason($course, $assignment, null);
+        if ($common !== null) {
+            return $common;
+        }
+        // 人数下限：提交作业时检查
+        $min = $course['group_min_members'] !== null ? (int) $course['group_min_members'] : null;
+        if ($min !== null && $this->groups->countActiveMembers((int) $group['id']) < $min) {
+            return "小组成员不足 {$min} 人，暂不能提交。";
+        }
+        return null;
     }
 
     /** 不可提交的原因；可提交返回 null。已批改的提交学生不能再修改 */

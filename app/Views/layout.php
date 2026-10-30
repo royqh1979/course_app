@@ -29,6 +29,7 @@ $layoutIsStudent = ($layoutUser['type'] ?? '') === 'student';
                 <li class="nav-item"><a class="nav-link" href="?r=admin/courses">课程管理</a></li>
                 <li class="nav-item"><a class="nav-link" href="?r=admin/library">备课区</a></li>
                 <li class="nav-item"><a class="nav-link" href="?r=admin/students">学生账号</a></li>
+                <li class="nav-item"><a class="nav-link" href="?r=admin/logs/auth">日志</a></li>
                 <li class="nav-item"><a class="nav-link" href="?r=admin/qrcode">注册二维码</a></li>
                 <?php elseif ($layoutIsStudent): ?>
                 <li class="nav-item"><a class="nav-link" href="?r=student/home">我的课程</a></li>
@@ -56,5 +57,6 @@ $layoutIsStudent = ($layoutUser['type'] ?? '') === 'student';
     <?php require $file; ?>
 </main>
 <script src="assets/vendor/bootstrap/bootstrap.bundle.min.js"></script>
+<script src="assets/js/upload.js"></script>
 </body>
 </html>

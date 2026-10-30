@@ -16,8 +16,13 @@
 <table class="table table-striped align-middle">
     <thead>
     <tr>
+        <?php if ((bool) $assignment['is_group']): ?>
+        <th>小组</th>
+        <th>成员</th>
+        <?php else: ?>
         <th>学号</th>
         <th>姓名</th>
+        <?php endif; ?>
         <th>提交文件</th>
         <th>最近提交时间</th>
         <th>迟交</th>
@@ -27,11 +32,19 @@
     <tbody>
     <?php foreach ($submissions as $sub): $graded = $sub['graded_at'] !== null; ?>
     <tr>
+        <?php if ((bool) $assignment['is_group']): ?>
+        <td><?= e($sub['group_name']) ?></td>
+        <td class="small"><?= e($sub['members'] ?? '') ?></td>
+        <?php else: ?>
         <td><?= e($sub['student_no']) ?></td>
         <td><?= e($sub['student_name']) ?></td>
+        <?php endif; ?>
         <td>
             <a href="?r=submission/download&id=<?= (int) $sub['id'] ?>"><?= e($sub['original_name']) ?></a>
             <span class="text-muted">（<?= e(format_size((int) $sub['size'])) ?>）</span>
+            <?php if ((bool) $assignment['is_group']): ?>
+            <div class="text-muted small">组长：<?= e($sub['student_name']) ?>（<?= e($sub['student_no']) ?>）</div>
+            <?php endif; ?>
         </td>
         <td><?= e($sub['last_submitted_at']) ?></td>
         <td>

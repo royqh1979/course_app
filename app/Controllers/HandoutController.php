@@ -45,31 +45,42 @@ final class HandoutController extends BaseController
         $course = $this->requireActiveCourse((int) ($_POST['course_id'] ?? 0));
         $title = trim((string) ($_POST['title'] ?? ''));
         if ($title === '' || mb_strlen($title) > 200) {
+            if ($this->wantsJson()) {
+                $this->jsonResponse(false, '讲义标题必填且不超过 200 字。');
+            }
             Session::flash('error', '讲义标题必填且不超过 200 字。');
             redirect('?r=admin/courses/show&id=' . $course['id']);
         }
 
         $description = trim((string) ($_POST['description'] ?? ''));
         try {
-            $id = $this->storage->transactional(function () use ($course, $title, $description) {
+            $result = $this->storage->transactional(function () use ($course, $title, $description) {
                 $meta = $this->storage->store(
                     $_FILES['file'] ?? [],
                     'courses/' . $course['id'] . '/handouts',
                     self::ALLOWED_EXTENSIONS,
                     $this->teacherMaxSize()
                 );
-                return Database::transaction(function () use ($meta, $course, $title, $description) {
+                $id = Database::transaction(function () use ($meta, $course, $title, $description) {
                     $fileId = $this->files->create($meta);
                     return $this->handouts->create((int) $course['id'], $title, $description, $fileId);
                 });
+                return ['id' => $id, 'original_name' => $meta['original_name']];
             });
         } catch (RuntimeException $e) {
+            if ($this->wantsJson()) {
+                $this->jsonResponse(false, $e->getMessage());
+            }
             Session::flash('error', $e->getMessage());
             redirect('?r=admin/courses/show&id=' . $course['id']);
         }
-        $this->logs->addAuditLog('admin', (int) $admin['id'], 'handout.upload', 'handout', (string) $id, "课程 {$course['id']}：{$title}", $this->ip());
+        $this->logs->addAuditLog('admin', (int) $admin['id'], 'handout.upload', 'handout', (string) $result['id'], "课程 {$course['id']}：{$title}", $this->ip());
 
-        Session::flash('success', '讲义已上传（草稿），发布后学生才可见。');
+        $message = "《{$result['original_name']}》上传成功（草稿），发布后学生才可见。";
+        if ($this->wantsJson()) {
+            $this->jsonResponse(true, $message, '?r=admin/courses/show&id=' . $course['id']);
+        }
+        Session::flash('success', $message);
         redirect('?r=admin/courses/show&id=' . $course['id']);
     }
 
@@ -128,12 +139,19 @@ final class HandoutController extends BaseController
                 return $meta['original_name'];
             });
         } catch (RuntimeException $e) {
+            if ($this->wantsJson()) {
+                $this->jsonResponse(false, $e->getMessage());
+            }
             Session::flash('error', $e->getMessage());
             redirect('?r=admin/handouts/edit&id=' . $handout['id']);
         }
         $this->logs->addAuditLog('admin', (int) $admin['id'], 'handout.replace_file', 'handout', (string) $handout['id'], $originalName, $this->ip());
 
-        Session::flash('success', '讲义文件已替换。');
+        $message = "讲义文件已替换为《{$originalName}》。";
+        if ($this->wantsJson()) {
+            $this->jsonResponse(true, $message, '?r=admin/courses/show&id=' . $handout['course_id']);
+        }
+        Session::flash('success', $message);
         redirect('?r=admin/courses/show&id=' . $handout['course_id']);
     }
 

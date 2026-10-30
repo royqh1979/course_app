@@ -16,6 +16,9 @@ final class HttpClient
     /** 自定义 User-Agent（用于设备相关测试，如手机端每页条数默认值） */
     public ?string $userAgent = null;
 
+    /** 模拟 XHR 上传（带 X-Requested-With 头，端点返回 JSON） */
+    public bool $xhr = false;
+
     public function __construct(private readonly string $baseUrl)
     {
     }
@@ -54,6 +57,9 @@ final class HttpClient
         $headers = [];
         if ($this->userAgent !== null) {
             $headers[] = 'User-Agent: ' . $this->userAgent;
+        }
+        if ($this->xhr) {
+            $headers[] = 'X-Requested-With: XMLHttpRequest';
         }
         if ($this->cookies !== []) {
             $pairs = [];

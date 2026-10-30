@@ -22,8 +22,8 @@ final class AssignmentRepository
     public function create(int $courseId, array $data): int
     {
         $stmt = $this->db()->prepare(
-            'INSERT INTO assignments (course_id, title, requirements, start_at, deadline_at, allowed_extensions, max_file_size, allow_late)
-             VALUES (:course_id, :title, :requirements, :start_at, :deadline_at, :allowed_extensions, :max_file_size, :allow_late)'
+            'INSERT INTO assignments (course_id, title, requirements, start_at, deadline_at, allowed_extensions, max_file_size, allow_late, is_group)
+             VALUES (:course_id, :title, :requirements, :start_at, :deadline_at, :allowed_extensions, :max_file_size, :allow_late, :is_group)'
         );
         $stmt->execute([
             'course_id' => $courseId,
@@ -33,6 +33,7 @@ final class AssignmentRepository
             'deadline_at' => $data['deadline_at'],
             'allowed_extensions' => $data['allowed_extensions'],
             'max_file_size' => $data['max_file_size'],
+            'is_group' => !empty($data['is_group']) ? 1 : 0,
             'allow_late' => $data['allow_late'] ? 1 : 0,
         ]);
         return (int) $this->db()->lastInsertId();
@@ -44,7 +45,7 @@ final class AssignmentRepository
         $stmt = $this->db()->prepare(
             'UPDATE assignments
              SET title = :title, requirements = :requirements, start_at = :start_at, deadline_at = :deadline_at,
-                 allowed_extensions = :allowed_extensions, max_file_size = :max_file_size, allow_late = :allow_late
+                 allowed_extensions = :allowed_extensions, max_file_size = :max_file_size, allow_late = :allow_late, is_group = :is_group
              WHERE id = :id'
         );
         $stmt->execute([
@@ -54,6 +55,7 @@ final class AssignmentRepository
             'deadline_at' => $data['deadline_at'],
             'allowed_extensions' => $data['allowed_extensions'],
             'max_file_size' => $data['max_file_size'],
+            'is_group' => !empty($data['is_group']) ? 1 : 0,
             'allow_late' => $data['allow_late'] ? 1 : 0,
             'id' => $id,
         ]);

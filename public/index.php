@@ -7,8 +7,10 @@ use App\Controllers\AssignmentController;
 use App\Controllers\AuthController;
 use App\Controllers\CourseController;
 use App\Controllers\FileController;
+use App\Controllers\GroupController;
 use App\Controllers\HandoutController;
 use App\Controllers\LibraryController;
+use App\Controllers\LogController;
 use App\Controllers\QrCodeController;
 use App\Controllers\RosterController;
 use App\Controllers\StudentController;
@@ -17,6 +19,7 @@ use App\Repositories\AssignmentRepository;
 use App\Repositories\AttachmentRepository;
 use App\Repositories\CourseRepository;
 use App\Repositories\FileRepository;
+use App\Repositories\GroupRepository;
 use App\Repositories\HandoutRepository;
 use App\Repositories\LibraryAssignmentRepository;
 use App\Repositories\LibraryHandoutRepository;
@@ -57,17 +60,20 @@ $submissions = new SubmissionRepository();
 $files = new FileRepository();
 $libraryHandouts = new LibraryHandoutRepository();
 $libraryAssignments = new LibraryAssignmentRepository();
+$groups = new GroupRepository();
 
 $authController = new AuthController($auth, $students, $logs);
-$courseController = new CourseController($auth, $courses, $roster, $logs, $handouts, $assignments);
+$courseController = new CourseController($auth, $courses, $roster, $logs, $handouts, $assignments, $groups);
 $rosterController = new RosterController($auth, $roster, $courses, $logs);
-$studentController = new StudentController($auth, $courses, $handouts, $assignments, $attachments, $submissions, $files);
+$studentController = new StudentController($auth, $courses, $handouts, $assignments, $attachments, $submissions, $files, $groups);
+$groupController = new GroupController($auth, $groups, $courses);
 $adminStudentController = new AdminStudentController($auth, $students, $logs);
 $qrCodeController = new QrCodeController($auth);
 $handoutController = new HandoutController($auth, $handouts, $courses, $files, $logs);
 $assignmentController = new AssignmentController($auth, $assignments, $courses, $attachments, $files, $logs, $submissions);
 $fileController = new FileController($auth, $handouts, $assignments, $attachments, $submissions, $courses, $libraryHandouts, $libraryAssignments);
 $libraryController = new LibraryController($auth, $libraryHandouts, $libraryAssignments, $handouts, $assignments, $attachments, $courses, $files, $logs);
+$logController = new LogController($auth, $logs);
 
 $home = static function () use ($auth): void {
     $user = $auth->currentUser();
@@ -100,6 +106,7 @@ match ([$method, $route]) {
     ['POST', 'admin/roster/delete'] => $rosterController->delete(),
     ['GET', 'admin/roster/template'] => $rosterController->template(),
     ['POST', 'admin/roster/import'] => $rosterController->import(),
+    ['GET', 'admin/roster/import/preview'] => $rosterController->preview(),
     ['POST', 'admin/roster/import/confirm'] => $rosterController->confirmImport(),
     ['GET', 'admin/qrcode'] => $qrCodeController->show(),
     ['GET', 'admin/students'] => $adminStudentController->index(),
@@ -121,6 +128,11 @@ match ([$method, $route]) {
     ['POST', 'admin/assignments/close'] => $assignmentController->close(),
     ['GET', 'admin/assignments/submissions'] => $assignmentController->submissions(),
     ['POST', 'admin/assignments/grade'] => $assignmentController->grade(),
+    ['GET', 'admin/assignments/stats'] => $assignmentController->stats(),
+    ['GET', 'admin/assignments/export'] => $assignmentController->export(),
+    ['GET', 'admin/assignments/zip'] => $assignmentController->zip(),
+    ['GET', 'admin/logs/auth'] => $logController->auth(),
+    ['GET', 'admin/logs/audit'] => $logController->audit(),
     ['POST', 'admin/assignments/attachments/add'] => $assignmentController->addAttachment(),
     ['POST', 'admin/assignments/attachments/delete'] => $assignmentController->deleteAttachment(),
     ['GET', 'admin/library'] => $libraryController->index(),
@@ -148,5 +160,16 @@ match ([$method, $route]) {
     ['GET', 'student/course'] => $studentController->course(),
     ['GET', 'student/assignment'] => $studentController->assignment(),
     ['POST', 'student/submissions/submit'] => $studentController->submit(),
+    ['GET', 'student/group'] => $groupController->show(),
+    ['POST', 'student/group/create'] => $groupController->create(),
+    ['POST', 'student/group/apply'] => $groupController->apply(),
+    ['POST', 'student/group/cancel-apply'] => $groupController->cancelApply(),
+    ['POST', 'student/group/approve'] => $groupController->approve(),
+    ['POST', 'student/group/reject'] => $groupController->reject(),
+    ['POST', 'student/group/leave'] => $groupController->leave(),
+    ['POST', 'student/group/rename'] => $groupController->rename(),
+    ['POST', 'student/group/transfer'] => $groupController->transfer(),
+    ['POST', 'student/group/remove-member'] => $groupController->removeMember(),
+    ['POST', 'student/group/disband'] => $groupController->disband(),
     default => http_response_code(404),
 };

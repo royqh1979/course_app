@@ -15,6 +15,7 @@ use App\Support\Validate;
 use App\Support\View;
 use PDOException;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use RuntimeException;
 use Ramsey\Uuid\Uuid;
 
 final class RosterController extends BaseController
@@ -106,6 +107,7 @@ final class RosterController extends BaseController
 
     /**
      * 导入第一步：接收上传文件并预校验，展示总行/有效/错误/重复统计，不写库。
+     * XHR 上传返回 JSON，跳转 GET 预校验页；原生表单直接渲染预校验页。
      */
     public function import(): void
     {
@@ -118,23 +120,25 @@ final class RosterController extends BaseController
             $this->notFound('课程不存在。');
         }
 
-        $storedPath = $this->storeUpload($courseId);
-        if ($storedPath === null) {
-            redirect('?r=admin/courses/show&id=' . $courseId);
-        }
-
         try {
-            $rows = $this->importService->parse($this->absolutePath($storedPath));
-        } catch (\Throwable) {
-            $this->discardUpload($storedPath);
-            Session::flash('error', '无法解析该文件，请使用标准模板（.xlsx / .xls）。');
-            redirect('?r=admin/courses/show&id=' . $courseId);
-        }
+            $storedPath = $this->storeUpload();
+            try {
+                $rows = $this->importService->parse($this->absolutePath($storedPath));
+            } catch (\Throwable) {
+                $this->discardUpload($storedPath);
+                throw new RuntimeException('无法解析该文件，请使用标准模板（.xlsx / .xls）。');
+            }
 
-        $result = $this->importService->validate($rows, $this->roster->existingStudentNos($courseId));
-        if ($result['total'] === 0) {
-            $this->discardUpload($storedPath);
-            Session::flash('error', '文件中没有可导入的数据行（第 1 行为表头）。');
+            $result = $this->importService->validate($rows, $this->roster->existingStudentNos($courseId));
+            if ($result['total'] === 0) {
+                $this->discardUpload($storedPath);
+                throw new RuntimeException('文件中没有可导入的数据行（第 1 行为表头）。');
+            }
+        } catch (RuntimeException $e) {
+            if ($this->wantsJson()) {
+                $this->jsonResponse(false, $e->getMessage());
+            }
+            Session::flash('error', $e->getMessage());
             redirect('?r=admin/courses/show&id=' . $courseId);
         }
 
@@ -145,11 +149,39 @@ final class RosterController extends BaseController
             'original_name' => (string) ($_FILES['roster_file']['name'] ?? ''),
         ];
 
+        if ($this->wantsJson()) {
+            $this->jsonResponse(true, '预校验完成，请确认导入内容。', '?r=admin/roster/import/preview');
+        }
         View::render('admin/roster/import_preview', [
             'title' => '名单导入预校验',
             'course' => $course,
             'result' => $result,
             'fileName' => (string) ($_FILES['roster_file']['name'] ?? ''),
+        ]);
+    }
+
+    /** GET 预校验页（XHR 上传后跳转；以暂存文件重新解析校验） */
+    public function preview(): void
+    {
+        $this->requireUser(AuthService::TYPE_ADMIN);
+
+        $pending = $_SESSION['roster_import'] ?? null;
+        if (!is_array($pending) || !is_file($this->absolutePath((string) $pending['path']))) {
+            Session::flash('error', '导入会话已失效，请重新上传名单文件。');
+            redirect('?r=admin/courses');
+        }
+        $course = $this->courses->findById((int) $pending['course_id']);
+        if ($course === null) {
+            $this->notFound('课程不存在。');
+        }
+
+        $rows = $this->importService->parse($this->absolutePath((string) $pending['path']));
+        $result = $this->importService->validate($rows, $this->roster->existingStudentNos((int) $course['id']));
+        View::render('admin/roster/import_preview', [
+            'title' => '名单导入预校验',
+            'course' => $course,
+            'result' => $result,
+            'fileName' => (string) $pending['original_name'],
         ]);
     }
 
@@ -203,40 +235,36 @@ final class RosterController extends BaseController
 
     /**
      * 保存上传文件到 storage/imports/，校验顺序：后缀白名单 → 大小 → MIME。
-     * 返回相对 storage/ 的路径；失败时写入 flash 并返回 null。
+     * 返回相对 storage/ 的路径。
+     *
+     * @throws RuntimeException 校验或保存失败（消息可直接展示给用户）
      */
-    private function storeUpload(int $courseId): ?string
+    private function storeUpload(): string
     {
         $file = $_FILES['roster_file'] ?? null;
         if (!is_array($file) || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-            Session::flash('error', '请选择要上传的名单文件。');
-            return null;
+            throw new RuntimeException('请选择要上传的名单文件。');
         }
 
         $extension = strtolower(pathinfo((string) $file['name'], PATHINFO_EXTENSION));
         if (!in_array($extension, self::IMPORT_EXTENSIONS, true)) {
-            Session::flash('error', '仅支持 .xlsx 或 .xls 格式的名单文件。');
-            return null;
+            throw new RuntimeException('仅支持 .xlsx 或 .xls 格式的名单文件。');
         }
         if ((int) $file['size'] > self::IMPORT_MAX_SIZE) {
-            Session::flash('error', '名单文件大小不能超过 5 MB。');
-            return null;
+            throw new RuntimeException('名单文件大小不能超过 5 MB。');
         }
         $mime = (string) (finfo_file(finfo_open(FILEINFO_MIME_TYPE), (string) $file['tmp_name']) ?: '');
         if (!in_array($mime, self::IMPORT_MIMES, true)) {
-            Session::flash('error', '文件内容类型不符合 Excel 格式要求。');
-            return null;
+            throw new RuntimeException('文件内容类型不符合 Excel 格式要求。');
         }
 
         $storedPath = 'imports/' . Uuid::uuid7()->toString() . '.' . $extension;
         $absolute = $this->absolutePath($storedPath);
         if (!is_dir(dirname($absolute)) && !mkdir(dirname($absolute), 0750, true)) {
-            Session::flash('error', '服务器存储目录不可用，请联系管理员。');
-            return null;
+            throw new RuntimeException('服务器存储目录不可用，请联系管理员。');
         }
         if (!move_uploaded_file((string) $file['tmp_name'], $absolute) && !rename((string) $file['tmp_name'], $absolute)) {
-            Session::flash('error', '文件保存失败，请重试。');
-            return null;
+            throw new RuntimeException('文件保存失败，请重试。');
         }
 
         // 替换旧的待确认导入文件

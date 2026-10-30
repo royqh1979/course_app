@@ -68,6 +68,11 @@ $statusText = ['draft' => '草稿', 'published' => '已发布', 'closed' => '已
                                <?= ($assignment === null || (bool) $assignment['allow_late']) ? 'checked' : '' ?>>
                         <label class="form-check-label" for="allow_late">允许补交（截止后仍可提交，自动记为迟交）</label>
                     </div>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" id="is_group" name="is_group" value="1"
+                               <?= ($assignment !== null && (bool) ($assignment['is_group'] ?? false)) ? 'checked' : '' ?>>
+                        <label class="form-check-label" for="is_group">小组作业（由课程内小组的组长提交，成绩共享给全组）</label>
+                    </div>
                 </div>
             </div>
             <button type="submit" class="btn btn-primary">保存</button>
@@ -94,7 +99,7 @@ $statusText = ['draft' => '草稿', 'published' => '已发布', 'closed' => '已
                 <li class="list-group-item px-0 text-muted">暂无附件。</li>
                 <?php endif; ?>
             </ul>
-            <form method="post" action="?r=admin/assignments/attachments/add" enctype="multipart/form-data">
+            <form method="post" action="?r=admin/assignments/attachments/add" enctype="multipart/form-data" data-upload-progress>
                 <?= Csrf::field() ?>
                 <input type="hidden" name="id" value="<?= (int) $assignment['id'] ?>">
                 <div class="mb-2">

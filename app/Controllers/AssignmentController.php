@@ -11,6 +11,7 @@ use App\Repositories\FileRepository;
 use App\Repositories\LogRepository;
 use App\Repositories\SubmissionRepository;
 use App\Services\AuthService;
+use App\Services\ExportService;
 use App\Services\FileStorage;
 use App\Support\App;
 use App\Support\Database;
@@ -149,18 +150,81 @@ final class AssignmentController extends BaseController
         redirect('?r=admin/courses/show&id=' . $assignment['course_id']);
     }
 
+    /** 提交情况统计页：以当前课程名单为基准（含未注册学生）；小组作业按组聚合 */
+    public function stats(): void
+    {
+        $this->requireUser(AuthService::TYPE_ADMIN);
+        $assignment = $this->findAssignment();
+        $course = $this->courses->findById((int) $assignment['course_id']);
+        $isGroup = (bool) $assignment['is_group'];
+        $summary = $isGroup
+            ? $this->submissions->statsSummaryGroup((int) $assignment['id'])
+            : $this->submissions->statsSummary((int) $assignment['id']);
+        $pagination = Pagination::fromRequest('page', $summary['total']);
+        View::render('admin/assignments/stats', [
+            'title' => '提交情况 — ' . $assignment['title'],
+            'course' => $course,
+            'assignment' => $assignment,
+            'summary' => $summary,
+            'rows' => $isGroup
+                ? $this->submissions->statsByAssignmentGroup((int) $assignment['id'], $pagination)
+                : $this->submissions->statsByAssignment((int) $assignment['id'], $pagination),
+            'pagination' => $pagination,
+        ]);
+    }
+
+    /** 导出提交情况 Excel：与统计页同口径（名单基准），人数必然一致 */
+    public function export(): void
+    {
+        $this->requireUser(AuthService::TYPE_ADMIN);
+        $assignment = $this->findAssignment();
+        $rows = (bool) $assignment['is_group']
+            ? $this->submissions->statsByAssignmentGroup((int) $assignment['id'])
+            : $this->submissions->statsByAssignment((int) $assignment['id']);
+        (new ExportService($this->storage))->outputStatsXlsx($rows, $assignment['title']);
+    }
+
+    /** 打包全部有效提交为 ZIP（个人作业含已从名单移除学生的提交；小组作业每组一份） */
+    public function zip(): void
+    {
+        $this->requireUser(AuthService::TYPE_ADMIN);
+        $assignment = $this->findAssignment();
+        $submissions = (bool) $assignment['is_group']
+            ? $this->submissions->listGroupsForExport((int) $assignment['id'])
+            : $this->submissions->listAllForExport((int) $assignment['id']);
+        if ($submissions === []) {
+            Session::flash('error', '暂无学生提交，无法打包。');
+            redirect('?r=admin/assignments/stats&id=' . $assignment['id']);
+        }
+        try {
+            (new ExportService($this->storage))->outputSubmissionsZip(
+                $submissions,
+                $assignment['title'],
+                (int) App::config('export.zip_max_size', 500 * 1024 * 1024)
+            );
+        } catch (RuntimeException $e) {
+            Session::flash('error', $e->getMessage());
+            redirect('?r=admin/assignments/stats&id=' . $assignment['id']);
+        }
+    }
+
     /** 提交列表与批改页 */
     public function submissions(): void
     {
         $this->requireUser(AuthService::TYPE_ADMIN);
         $assignment = $this->findAssignment();
         $course = $this->courses->findById((int) $assignment['course_id']);
-        $pagination = Pagination::fromRequest('page', $this->submissions->countByAssignment((int) $assignment['id']));
+        $isGroup = (bool) $assignment['is_group'];
+        $pagination = Pagination::fromRequest('page', $isGroup
+            ? $this->submissions->countGroupByAssignment((int) $assignment['id'])
+            : $this->submissions->countByAssignment((int) $assignment['id']));
         View::render('admin/assignments/submissions', [
             'title' => '提交批改 — ' . $assignment['title'],
             'course' => $course,
             'assignment' => $assignment,
-            'submissions' => $this->submissions->listByAssignment((int) $assignment['id'], $pagination),
+            'submissions' => $isGroup
+                ? $this->submissions->listGroupByAssignment((int) $assignment['id'], $pagination)
+                : $this->submissions->listByAssignment((int) $assignment['id'], $pagination),
             'pagination' => $pagination,
         ]);
     }
@@ -236,12 +300,19 @@ final class AssignmentController extends BaseController
                 return $meta['original_name'];
             });
         } catch (RuntimeException $e) {
+            if ($this->wantsJson()) {
+                $this->jsonResponse(false, $e->getMessage());
+            }
             Session::flash('error', $e->getMessage());
             redirect('?r=admin/assignments/edit&id=' . $assignment['id']);
         }
         $this->logs->addAuditLog('admin', (int) $admin['id'], 'assignment.attachment_add', 'assignment', (string) $assignment['id'], $originalName, $this->ip());
 
-        Session::flash('success', '附件已添加。');
+        $message = "附件《{$originalName}》上传成功。";
+        if ($this->wantsJson()) {
+            $this->jsonResponse(true, $message, '?r=admin/assignments/edit&id=' . $assignment['id']);
+        }
+        Session::flash('success', $message);
         redirect('?r=admin/assignments/edit&id=' . $assignment['id']);
     }
 
@@ -317,6 +388,7 @@ final class AssignmentController extends BaseController
             'allowed_extensions' => implode(',', $extensions),
             'max_file_size' => $maxMb * 1024 * 1024,
             'allow_late' => ($_POST['allow_late'] ?? '') === '1',
+            'is_group' => ($_POST['is_group'] ?? '') === '1',
         ];
     }
 

@@ -15,7 +15,14 @@ $canSubmit = $submitBlock === null;
     ｜开始：<?= $assignment['start_at'] !== null ? e($assignment['start_at']) : '不限' ?>
     ｜截止：<?= $assignment['deadline_at'] !== null ? e($assignment['deadline_at']) : '不限' ?>
     <?php if ($assignment['status'] === 'closed'): ?>｜<span class="badge bg-secondary">已关闭</span><?php endif; ?>
+    <?php if ((bool) $assignment['is_group']): ?>
+    ｜<span class="badge bg-info text-dark">小组作业</span>
+    <?php endif; ?>
 </p>
+<?php if ((bool) $assignment['is_group'] && $myGroup !== null): ?>
+<p>我的小组：<a href="?r=student/group&id=<?= (int) $myGroup['id'] ?>"><?= e($myGroup['name']) ?></a>
+    （组长：<?= e($myGroup['leader_name']) ?>）</p>
+<?php endif; ?>
 
 <?php if (!empty($assignment['requirements'])): ?>
 <div class="border rounded p-3 mb-3">
@@ -74,7 +81,7 @@ $canSubmit = $submitBlock === null;
     <?php if ($pastDeadline): ?>
     <div class="alert alert-warning">已超过截止时间（<?= e($assignment['deadline_at']) ?>），现在提交将记为补交（迟交）。</div>
     <?php endif; ?>
-<form method="post" action="?r=student/submissions/submit" enctype="multipart/form-data" class="border rounded p-3">
+<form method="post" action="?r=student/submissions/submit" enctype="multipart/form-data" data-upload-progress class="border rounded p-3">
     <?= Csrf::field() ?>
     <input type="hidden" name="assignment_id" value="<?= (int) $assignment['id'] ?>">
     <div class="mb-2">

@@ -6,6 +6,7 @@ namespace App\Controllers;
 
 use App\Repositories\AssignmentRepository;
 use App\Repositories\CourseRepository;
+use App\Repositories\GroupRepository;
 use App\Repositories\HandoutRepository;
 use App\Repositories\LogRepository;
 use App\Repositories\RosterRepository;
@@ -23,6 +24,7 @@ final class CourseController extends BaseController
         private readonly LogRepository $logs,
         private readonly HandoutRepository $handouts,
         private readonly AssignmentRepository $assignments,
+        private readonly GroupRepository $groups,
     ) {
         parent::__construct($auth);
     }
@@ -58,11 +60,14 @@ final class CourseController extends BaseController
             Session::flash('error', '课程名称必填且不超过 100 字。');
             redirect('?r=admin/courses/create');
         }
+        [$groupMin, $groupMax] = $this->readGroupLimits('?r=admin/courses/create');
         $id = $this->courses->create(
             $name,
             trim((string) ($_POST['code'] ?? '')),
             trim((string) ($_POST['term'] ?? '')),
-            trim((string) ($_POST['description'] ?? ''))
+            trim((string) ($_POST['description'] ?? '')),
+            $groupMin,
+            $groupMax
         );
         $this->logs->addAuditLog('admin', (int) $admin['id'], 'course.create', 'course', (string) $id, "课程：{$name}", $this->ip());
 
@@ -99,17 +104,37 @@ final class CourseController extends BaseController
             Session::flash('error', '课程名称必填且不超过 100 字。');
             redirect('?r=admin/courses/edit&id=' . $id);
         }
+        [$groupMin, $groupMax] = $this->readGroupLimits('?r=admin/courses/edit&id=' . $id);
         $this->courses->update(
             $id,
             $name,
             trim((string) ($_POST['code'] ?? '')),
             trim((string) ($_POST['term'] ?? '')),
-            trim((string) ($_POST['description'] ?? ''))
+            trim((string) ($_POST['description'] ?? '')),
+            $groupMin,
+            $groupMax
         );
         $this->logs->addAuditLog('admin', (int) $admin['id'], 'course.update', 'course', (string) $id, "课程：{$name}", $this->ip());
 
         Session::flash('success', '课程已保存。');
         redirect('?r=admin/courses/show&id=' . $id);
+    }
+
+    /** 小组人数上下限：可选正整数，留空不限；非法则 flash 并跳转 */
+    private function readGroupLimits(string $redirectOnError): array
+    {
+        $parse = function (string $key) use ($redirectOnError): ?int {
+            $raw = trim((string) ($_POST[$key] ?? ''));
+            if ($raw === '') {
+                return null;
+            }
+            if (!ctype_digit($raw) || (int) $raw < 1 || (int) $raw > 999) {
+                Session::flash('error', '小组人数限制须为 1–999 的整数，或留空不限。');
+                redirect($redirectOnError);
+            }
+            return (int) $raw;
+        };
+        return [$parse('group_min_members'), $parse('group_max_members')];
     }
 
     public function archive(): void
@@ -150,6 +175,8 @@ final class CourseController extends BaseController
             'handoutPagination' => $handoutPagination,
             'assignmentPagination' => $assignmentPagination,
             'rosterPagination' => $rosterPagination,
+            'groups' => $this->groups->listByCourse($id),
+            'groupMembers' => $this->groups->membersByCourse($id),
         ]);
     }
 }

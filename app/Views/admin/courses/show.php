@@ -24,7 +24,7 @@ $handoutStatus = ['draft' => ['草稿', 'secondary'], 'published' => ['已发布
 ?>
 <?php if ($course['status'] === 'active'): ?>
 <div class="border rounded p-3 mb-3">
-    <form method="post" action="?r=admin/handouts/store" enctype="multipart/form-data" class="row g-2 align-items-end">
+    <form method="post" action="?r=admin/handouts/store" enctype="multipart/form-data" data-upload-progress class="row g-2 align-items-end">
         <?= Csrf::field() ?>
         <input type="hidden" name="course_id" value="<?= (int) $course['id'] ?>">
         <div class="col-md-3">
@@ -126,6 +126,7 @@ $assignmentStatus = ['draft' => ['草稿', 'secondary'], 'published' => ['已发
         <td class="d-flex gap-1 flex-wrap">
             <a class="btn btn-sm btn-outline-secondary" href="?r=admin/assignments/edit&id=<?= (int) $assignment['id'] ?>">编辑</a>
             <a class="btn btn-sm btn-outline-primary" href="?r=admin/assignments/submissions&id=<?= (int) $assignment['id'] ?>">提交/批改</a>
+            <a class="btn btn-sm btn-outline-primary" href="?r=admin/assignments/stats&id=<?= (int) $assignment['id'] ?>">统计</a>
             <form method="post" action="?r=admin/library/save-back">
                 <?= Csrf::field() ?>
                 <input type="hidden" name="type" value="assignment">
@@ -163,13 +164,51 @@ $pagination = $assignmentPagination;
 require __DIR__ . '/../../_pagination.php';
 ?>
 
+<h2 class="h5 mt-4">分组情况（<?= count($groups) ?> 组）</h2>
+<p class="text-muted">
+    小组人数限制：下限 <?= $course['group_min_members'] !== null ? (int) $course['group_min_members'] . ' 人（提交时检查）' : '不限' ?>
+    ｜上限 <?= $course['group_max_members'] !== null ? (int) $course['group_max_members'] . ' 人（加入时检查）' : '不限' ?>
+    （可在编辑课程中调整）
+</p>
+<?php if ($groups === []): ?>
+<p class="text-muted">暂无小组（学生在课程页自行创建）。</p>
+<?php else: ?>
+<div class="row g-3">
+    <?php foreach ($groups as $group): ?>
+    <div class="col-md-6 col-lg-4">
+        <div class="border rounded p-3 h-100">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <strong><?= e($group['name']) ?></strong>
+                <span class="badge bg-secondary"><?= (int) $group['member_count'] ?> 人</span>
+            </div>
+            <div class="small text-muted mb-1">组长：<?= e($group['leader_name']) ?>（<?= e($group['leader_no']) ?>）</div>
+            <div class="small">
+                <?php
+                $names = [];
+                foreach ($groupMembers as $gm) {
+                    if ((int) $gm['group_id'] === (int) $group['id'] && $gm['status'] === 'active') {
+                        $names[] = e($gm['student_no'] . ' ' . $gm['name']);
+                    }
+                }
+                echo $names === [] ? '<span class="text-muted">—</span>' : implode('<br>', $names);
+                ?>
+            </div>
+            <?php if ((int) $group['pending_count'] > 0): ?>
+            <div class="small text-warning mt-1"><?= (int) $group['pending_count'] ?> 条待审批申请</div>
+            <?php endif; ?>
+        </div>
+    </div>
+    <?php endforeach; ?>
+</div>
+<?php endif; ?>
+
 <h2 class="h5 mt-4">课程名单（<?= $rosterPagination->total ?> 人）</h2>
 <p class="text-muted">名单与学生账号“学号 + 姓名”同时匹配后，学生即获得本课程访问权限；导入后权限即时生效。</p>
 
 <?php if ($course['status'] === 'active'): ?>
 <div class="border rounded p-3 mb-3">
     <h3 class="h6">Excel 批量导入（增量导入：新学号新增、已有学号更新姓名和班级）</h3>
-    <form method="post" action="?r=admin/roster/import" enctype="multipart/form-data" class="row g-2 align-items-end">
+    <form method="post" action="?r=admin/roster/import" enctype="multipart/form-data" data-upload-progress class="row g-2 align-items-end">
         <?= Csrf::field() ?>
         <input type="hidden" name="course_id" value="<?= (int) $course['id'] ?>">
         <div class="col-auto">

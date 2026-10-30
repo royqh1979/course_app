@@ -24,7 +24,7 @@
         <div class="border rounded p-3">
             <h2 class="h6">替换文件</h2>
             <p class="text-muted mb-2">当前文件：<?= e($handout['original_name']) ?>（<?= e(format_size((int) $handout['size'])) ?>）</p>
-            <form method="post" action="?r=admin/handouts/replace" enctype="multipart/form-data"
+            <form method="post" action="?r=admin/handouts/replace" enctype="multipart/form-data" data-upload-progress
                   onsubmit="return confirm('确认替换文件？学生将下载到新文件。');">
                 <?= Csrf::field() ?>
                 <input type="hidden" name="id" value="<?= (int) $handout['id'] ?>">

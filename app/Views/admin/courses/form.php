@@ -24,6 +24,18 @@
         <label class="form-label" for="description">课程简介</label>
         <textarea class="form-control" id="description" name="description" rows="4"><?= e($course['description'] ?? '') ?></textarea>
     </div>
+    <div class="row g-3 mb-3">
+        <div class="col-md-6">
+            <label class="form-label" for="group_min_members">小组人数下限（提交作业时检查，留空不限）</label>
+            <input class="form-control" type="number" id="group_min_members" name="group_min_members"
+                   min="1" max="999" value="<?= e((string) ($course['group_min_members'] ?? '')) ?>">
+        </div>
+        <div class="col-md-6">
+            <label class="form-label" for="group_max_members">小组人数上限（加入时检查，留空不限）</label>
+            <input class="form-control" type="number" id="group_max_members" name="group_max_members"
+                   min="1" max="999" value="<?= e((string) ($course['group_max_members'] ?? '')) ?>">
+        </div>
+    </div>
     <button type="submit" class="btn btn-primary">保存</button>
     <a class="btn btn-outline-secondary" href="?r=admin/courses">返回</a>
 </form>

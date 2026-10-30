@@ -15,30 +15,37 @@ final class CourseRepository
         return Database::pdo();
     }
 
-    public function create(string $name, ?string $code, string $term, ?string $description): int
+    public function create(string $name, ?string $code, string $term, ?string $description, ?int $groupMin = null, ?int $groupMax = null): int
     {
         $stmt = $this->db()->prepare(
-            'INSERT INTO courses (name, code, term, description) VALUES (:name, :code, :term, :description)'
+            'INSERT INTO courses (name, code, term, description, group_min_members, group_max_members)
+             VALUES (:name, :code, :term, :description, :group_min, :group_max)'
         );
         $stmt->execute([
             'name' => $name,
             'code' => $code === '' ? null : $code,
             'term' => $term,
             'description' => $description === '' ? null : $description,
+            'group_min' => $groupMin,
+            'group_max' => $groupMax,
         ]);
         return (int) $this->db()->lastInsertId();
     }
 
-    public function update(int $id, string $name, ?string $code, string $term, ?string $description): void
+    public function update(int $id, string $name, ?string $code, string $term, ?string $description, ?int $groupMin = null, ?int $groupMax = null): void
     {
         $stmt = $this->db()->prepare(
-            'UPDATE courses SET name = :name, code = :code, term = :term, description = :description WHERE id = :id'
+            'UPDATE courses SET name = :name, code = :code, term = :term, description = :description,
+                group_min_members = :group_min, group_max_members = :group_max
+             WHERE id = :id'
         );
         $stmt->execute([
             'name' => $name,
             'code' => $code === '' ? null : $code,
             'term' => $term,
             'description' => $description === '' ? null : $description,
+            'group_min' => $groupMin,
+            'group_max' => $groupMax,
             'id' => $id,
         ]);
     }

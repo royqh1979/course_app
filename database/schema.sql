@@ -33,9 +33,34 @@ CREATE TABLE IF NOT EXISTS courses (
     term VARCHAR(50) NOT NULL DEFAULT '',
     description TEXT,
     status VARCHAR(20) NOT NULL DEFAULT 'active',
+    group_min_members INT UNSIGNED DEFAULT NULL,
+    group_max_members INT UNSIGNED DEFAULT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     KEY idx_courses_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 课程级小组：作业级 is_group 开关决定是否按组提交；一课一套小组，多个小组作业复用
+-- 加组需组长审批（group_members.status='pending'）；人数上限加入时检查、下限提交时检查
+CREATE TABLE IF NOT EXISTS course_groups (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    course_id INT UNSIGNED NOT NULL,
+    name VARCHAR(50) NOT NULL,
+    leader_student_id INT UNSIGNED NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_groups_course_name (course_id, name),
+    KEY idx_groups_course (course_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS course_group_members (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    group_id INT UNSIGNED NOT NULL,
+    student_id INT UNSIGNED NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'active',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_members_group_student (group_id, student_id),
+    KEY idx_members_student (student_id, status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS course_roster (
@@ -86,6 +111,7 @@ CREATE TABLE IF NOT EXISTS assignments (
     allowed_extensions VARCHAR(255) NOT NULL DEFAULT 'doc,docx,xls,xlsx,ppt,pptx,zip',
     max_file_size INT UNSIGNED NOT NULL DEFAULT 20971520,
     allow_late TINYINT(1) NOT NULL DEFAULT 1,
+    is_group TINYINT(1) NOT NULL DEFAULT 0,
     status VARCHAR(20) NOT NULL DEFAULT 'draft',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -106,6 +132,7 @@ CREATE TABLE IF NOT EXISTS submissions (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     assignment_id INT UNSIGNED NOT NULL,
     student_id INT UNSIGNED NOT NULL,
+    group_id INT UNSIGNED DEFAULT NULL,
     file_id INT UNSIGNED NOT NULL,
     score INT UNSIGNED DEFAULT NULL,
     comment TEXT,
