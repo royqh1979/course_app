@@ -25,7 +25,13 @@
 
 **作业批改已完成**：`?r=admin/assignments/submissions&id=` 提交列表内嵌批改表单（分数 0–100 / 评语，至少一项）；`submissions` 表含 `score/comment/graded_at`。**批改后该提交对学生锁定**（不能再重交，提交表单隐藏，服务端拒绝）；**教师可随时修改批改结果**（`graded_at` 刷新，审计区分 `submission.grade/regrade`）；学生作业页展示分数与评语。
 
-三层自动化测试（`composer test`，127 个用例）全部通过。
+**列表分页已完成**：`App\Support\Pagination` + 视图局部模板 `app/Views/_pagination.php`；课程/学生/作业提交列表分页，课程详情页讲义/作业/名单三表独立页码参数（`hp`/`ap`/`rp`）；每页条数可选（10/20/50/100，`per_page` 参数保留），未指定时按 UA 判定**手机 20、电脑 50**；页码越界自动回落最后一页；翻页保留筛选条件。
+
+**文件操作事务化已完成**：`FileStorage::transactional()` 实现"事务 + 补偿"——回调内 DB 写入用 `Database::transaction()` 包裹，`store()` 的新文件登记入册、异常时补偿删除，`delete()` 延后到事务提交后执行。凡伴随 DB 写入的文件操作必须走该方法（讲义/附件/提交/备课区已全部接入）。
+
+**备课区已完成**：课件/作业模板库（`admin/library`，3 张 `library_*` 表）。**导入 = 逻辑快照**：复制业务行、共享同一 `files` 行（`file_id` 引用），模板与课程副本互不影响；模板修改/删除只影响之后的导入；支持课程条目"存入备课区"。**文件删除按引用计数**：`FileRepository::countReferences()` 统算 5 张引用表，归零才删行删盘；学生提交永不共享。
+
+三层自动化测试（`composer test`，154 个用例）全部通过。
 
 - 需求唯一权威来源：`课程讲义与作业管理系统需求方案.md`（中文，约 550 行）。任何与该文档冲突的实现决定都应先与用户确认。
 - 已实现代码按方案的原生 PHP 分层组织：`public/index.php` 前端控制器 + `app/`（Controllers / Repositories / Services / Support / Views）。
@@ -91,6 +97,7 @@
 - 所有私有文件经 PHP 下载程序提供：检查登录 → 账号未归档 → 学生实时课程权限 → 文件归属关系 → 按 `stored_path` 定位 → 以原始文件名（或规定格式）输出。
 - 上传校验顺序：后缀白名单 → 大小限制 → MIME 检查；学生提交按后缀白名单（doc/docx/xls/xlsx/ppt/pptx/zip）判断。
 - 替换文件先存新后删旧；定期检查无数据库记录的孤立文件。
+- **文件多步写入必须走 `FileStorage::transactional()`**（DB 事务 + 新建文件补偿删除 + 旧文件延后删除）；一个物理文件 = `files` 一行，可多处 `file_id` 引用，删除走 `countReferences()` 引用计数。
 
 ## 密码与安全要求
 

@@ -8,6 +8,7 @@ use App\Controllers\AuthController;
 use App\Controllers\CourseController;
 use App\Controllers\FileController;
 use App\Controllers\HandoutController;
+use App\Controllers\LibraryController;
 use App\Controllers\QrCodeController;
 use App\Controllers\RosterController;
 use App\Controllers\StudentController;
@@ -17,6 +18,8 @@ use App\Repositories\AttachmentRepository;
 use App\Repositories\CourseRepository;
 use App\Repositories\FileRepository;
 use App\Repositories\HandoutRepository;
+use App\Repositories\LibraryAssignmentRepository;
+use App\Repositories\LibraryHandoutRepository;
 use App\Repositories\LogRepository;
 use App\Repositories\RosterRepository;
 use App\Repositories\StudentRepository;
@@ -52,6 +55,8 @@ $assignments = new AssignmentRepository();
 $attachments = new AttachmentRepository();
 $submissions = new SubmissionRepository();
 $files = new FileRepository();
+$libraryHandouts = new LibraryHandoutRepository();
+$libraryAssignments = new LibraryAssignmentRepository();
 
 $authController = new AuthController($auth, $students, $logs);
 $courseController = new CourseController($auth, $courses, $roster, $logs, $handouts, $assignments);
@@ -61,7 +66,8 @@ $adminStudentController = new AdminStudentController($auth, $students, $logs);
 $qrCodeController = new QrCodeController($auth);
 $handoutController = new HandoutController($auth, $handouts, $courses, $files, $logs);
 $assignmentController = new AssignmentController($auth, $assignments, $courses, $attachments, $files, $logs, $submissions);
-$fileController = new FileController($auth, $handouts, $assignments, $attachments, $submissions, $courses);
+$fileController = new FileController($auth, $handouts, $assignments, $attachments, $submissions, $courses, $libraryHandouts, $libraryAssignments);
+$libraryController = new LibraryController($auth, $libraryHandouts, $libraryAssignments, $handouts, $assignments, $attachments, $courses, $files, $logs);
 
 $home = static function () use ($auth): void {
     $user = $auth->currentUser();
@@ -117,6 +123,24 @@ match ([$method, $route]) {
     ['POST', 'admin/assignments/grade'] => $assignmentController->grade(),
     ['POST', 'admin/assignments/attachments/add'] => $assignmentController->addAttachment(),
     ['POST', 'admin/assignments/attachments/delete'] => $assignmentController->deleteAttachment(),
+    ['GET', 'admin/library'] => $libraryController->index(),
+    ['POST', 'admin/library/handouts/store'] => $libraryController->handoutStore(),
+    ['GET', 'admin/library/handouts/edit'] => $libraryController->handoutEdit(),
+    ['POST', 'admin/library/handouts/update'] => $libraryController->handoutUpdate(),
+    ['POST', 'admin/library/handouts/replace'] => $libraryController->handoutReplace(),
+    ['POST', 'admin/library/handouts/delete'] => $libraryController->handoutDelete(),
+    ['GET', 'admin/library/assignments/create'] => $libraryController->assignmentCreate(),
+    ['POST', 'admin/library/assignments/store'] => $libraryController->assignmentStore(),
+    ['GET', 'admin/library/assignments/edit'] => $libraryController->assignmentEdit(),
+    ['POST', 'admin/library/assignments/update'] => $libraryController->assignmentUpdate(),
+    ['POST', 'admin/library/assignments/delete'] => $libraryController->assignmentDelete(),
+    ['POST', 'admin/library/attachments/add'] => $libraryController->attachmentAdd(),
+    ['POST', 'admin/library/attachments/delete'] => $libraryController->attachmentDelete(),
+    ['GET', 'admin/library/import'] => $libraryController->importSelect(),
+    ['POST', 'admin/library/import'] => $libraryController->import(),
+    ['POST', 'admin/library/save-back'] => $libraryController->saveBack(),
+    ['GET', 'library/handout/download'] => $fileController->libraryHandout(),
+    ['GET', 'library/attachment/download'] => $fileController->libraryAttachment(),
     ['GET', 'handout/download'] => $fileController->handout(),
     ['GET', 'attachment/download'] => $fileController->attachment(),
     ['GET', 'submission/download'] => $fileController->submission(),

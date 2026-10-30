@@ -13,6 +13,8 @@ use App\Repositories\SubmissionRepository;
 use App\Services\AuthService;
 use App\Services\FileStorage;
 use App\Support\App;
+use App\Support\Database;
+use App\Support\Pagination;
 use App\Support\Session;
 use App\Support\View;
 use RuntimeException;
@@ -153,11 +155,13 @@ final class AssignmentController extends BaseController
         $this->requireUser(AuthService::TYPE_ADMIN);
         $assignment = $this->findAssignment();
         $course = $this->courses->findById((int) $assignment['course_id']);
+        $pagination = Pagination::fromRequest('page', $this->submissions->countByAssignment((int) $assignment['id']));
         View::render('admin/assignments/submissions', [
             'title' => '提交批改 — ' . $assignment['title'],
             'course' => $course,
             'assignment' => $assignment,
-            'submissions' => $this->submissions->listByAssignment((int) $assignment['id']),
+            'submissions' => $this->submissions->listByAssignment((int) $assignment['id'], $pagination),
+            'pagination' => $pagination,
         ]);
     }
 
@@ -218,20 +222,24 @@ final class AssignmentController extends BaseController
 
         $assignment = $this->findAssignment();
         try {
-            $meta = $this->storage->store(
-                $_FILES['file'] ?? [],
-                'courses/' . $assignment['course_id'] . '/assignments/' . $assignment['id'] . '/attachments',
-                self::ATTACHMENT_EXTENSIONS,
-                $this->teacherMaxSize()
-            );
+            $originalName = $this->storage->transactional(function () use ($assignment) {
+                $meta = $this->storage->store(
+                    $_FILES['file'] ?? [],
+                    'courses/' . $assignment['course_id'] . '/assignments/' . $assignment['id'] . '/attachments',
+                    self::ATTACHMENT_EXTENSIONS,
+                    $this->teacherMaxSize()
+                );
+                Database::transaction(function () use ($meta, $assignment) {
+                    $fileId = $this->files->create($meta);
+                    $this->attachments->add((int) $assignment['id'], $fileId);
+                });
+                return $meta['original_name'];
+            });
         } catch (RuntimeException $e) {
             Session::flash('error', $e->getMessage());
             redirect('?r=admin/assignments/edit&id=' . $assignment['id']);
         }
-
-        $fileId = $this->files->create($meta);
-        $this->attachments->add((int) $assignment['id'], $fileId);
-        $this->logs->addAuditLog('admin', (int) $admin['id'], 'assignment.attachment_add', 'assignment', (string) $assignment['id'], $meta['original_name'], $this->ip());
+        $this->logs->addAuditLog('admin', (int) $admin['id'], 'assignment.attachment_add', 'assignment', (string) $assignment['id'], $originalName, $this->ip());
 
         Session::flash('success', '附件已添加。');
         redirect('?r=admin/assignments/edit&id=' . $assignment['id']);
@@ -246,9 +254,16 @@ final class AssignmentController extends BaseController
         if ($attachment === null) {
             $this->notFound('附件不存在。');
         }
-        $this->attachments->remove((int) $attachment['id']);
-        $this->storage->delete((string) $attachment['stored_path']);
-        $this->files->delete((int) $attachment['file_id']);
+        $this->storage->transactional(function () use ($attachment) {
+            // 先解除引用；files 行与磁盘文件仅当引用归零才删除
+            $oldPath = Database::transaction(function () use ($attachment) {
+                $this->attachments->remove((int) $attachment['id']);
+                return $this->files->deleteIfUnused((int) $attachment['file_id']);
+            });
+            if ($oldPath !== null) {
+                $this->storage->delete($oldPath);
+            }
+        });
         $this->logs->addAuditLog('admin', (int) $admin['id'], 'assignment.attachment_delete', 'assignment', (string) $attachment['assignment_id'], $attachment['original_name'], $this->ip());
 
         Session::flash('success', '附件已删除。');

@@ -13,7 +13,12 @@
     <p><?= nl2br(e($course['description'])) ?></p>
 <?php endif; ?>
 
-<h2 class="h5 mt-4">讲义（<?= count($handouts) ?>）</h2>
+<div class="d-flex justify-content-between align-items-center mt-4">
+    <h2 class="h5 m-0">讲义（<?= $handoutPagination->total ?>）</h2>
+    <?php if ($course['status'] === 'active'): ?>
+    <a class="btn btn-sm btn-outline-primary" href="?r=admin/library/import&course_id=<?= (int) $course['id'] ?>&type=handout">从备课区导入</a>
+    <?php endif; ?>
+</div>
 <?php
 $handoutStatus = ['draft' => ['草稿', 'secondary'], 'published' => ['已发布', 'success'], 'offline' => ['已下线', 'dark']];
 ?>
@@ -57,6 +62,12 @@ $handoutStatus = ['draft' => ['草稿', 'secondary'], 'published' => ['已发布
         <td><?= $handout['published_at'] !== null ? e($handout['published_at']) : '—' ?></td>
         <td class="d-flex gap-1 flex-wrap">
             <a class="btn btn-sm btn-outline-secondary" href="?r=admin/handouts/edit&id=<?= (int) $handout['id'] ?>">编辑</a>
+            <form method="post" action="?r=admin/library/save-back">
+                <?= Csrf::field() ?>
+                <input type="hidden" name="type" value="handout">
+                <input type="hidden" name="id" value="<?= (int) $handout['id'] ?>">
+                <button type="submit" class="btn btn-sm btn-outline-secondary">存入备课区</button>
+            </form>
             <?php if ($handout['status'] !== 'published' && $course['status'] === 'active'): ?>
             <form method="post" action="?r=admin/handouts/publish">
                 <?= Csrf::field() ?>
@@ -80,13 +91,25 @@ $handoutStatus = ['draft' => ['草稿', 'secondary'], 'published' => ['已发布
     </tbody>
 </table>
 </div>
+<?php
+$route = 'admin/courses/show';
+$params = ['id' => (int) $course['id'], 'ap' => $assignmentPagination->page, 'rp' => $rosterPagination->page];
+$pageParam = 'hp';
+$pagination = $handoutPagination;
+require __DIR__ . '/../../_pagination.php';
+?>
 
-<h2 class="h5 mt-4">作业（<?= count($assignments) ?>）</h2>
+<div class="d-flex justify-content-between align-items-center mt-4">
+    <h2 class="h5 m-0">作业（<?= $assignmentPagination->total ?>）</h2>
+    <?php if ($course['status'] === 'active'): ?>
+    <a class="btn btn-sm btn-outline-primary" href="?r=admin/library/import&course_id=<?= (int) $course['id'] ?>&type=assignment">从备课区导入</a>
+    <?php endif; ?>
+</div>
 <?php
 $assignmentStatus = ['draft' => ['草稿', 'secondary'], 'published' => ['已发布', 'success'], 'closed' => ['已关闭', 'dark']];
 ?>
 <?php if ($course['status'] === 'active'): ?>
-<p><a class="btn btn-primary btn-sm" href="?r=admin/assignments/create&course_id=<?= (int) $course['id'] ?>">新建作业</a></p>
+<p class="mt-2"><a class="btn btn-primary btn-sm" href="?r=admin/assignments/create&course_id=<?= (int) $course['id'] ?>">新建作业</a></p>
 <?php endif; ?>
 <div class="table-responsive">
 <table class="table table-sm table-striped align-middle">
@@ -103,6 +126,12 @@ $assignmentStatus = ['draft' => ['草稿', 'secondary'], 'published' => ['已发
         <td class="d-flex gap-1 flex-wrap">
             <a class="btn btn-sm btn-outline-secondary" href="?r=admin/assignments/edit&id=<?= (int) $assignment['id'] ?>">编辑</a>
             <a class="btn btn-sm btn-outline-primary" href="?r=admin/assignments/submissions&id=<?= (int) $assignment['id'] ?>">提交/批改</a>
+            <form method="post" action="?r=admin/library/save-back">
+                <?= Csrf::field() ?>
+                <input type="hidden" name="type" value="assignment">
+                <input type="hidden" name="id" value="<?= (int) $assignment['id'] ?>">
+                <button type="submit" class="btn btn-sm btn-outline-secondary">存入备课区</button>
+            </form>
             <?php if ($assignment['status'] !== 'published' && $course['status'] === 'active'): ?>
             <form method="post" action="?r=admin/assignments/publish">
                 <?= Csrf::field() ?>
@@ -126,8 +155,15 @@ $assignmentStatus = ['draft' => ['草稿', 'secondary'], 'published' => ['已发
     </tbody>
 </table>
 </div>
+<?php
+$route = 'admin/courses/show';
+$params = ['id' => (int) $course['id'], 'hp' => $handoutPagination->page, 'rp' => $rosterPagination->page];
+$pageParam = 'ap';
+$pagination = $assignmentPagination;
+require __DIR__ . '/../../_pagination.php';
+?>
 
-<h2 class="h5 mt-4">课程名单（<?= count($roster) ?> 人）</h2>
+<h2 class="h5 mt-4">课程名单（<?= $rosterPagination->total ?> 人）</h2>
 <p class="text-muted">名单与学生账号“学号 + 姓名”同时匹配后，学生即获得本课程访问权限；导入后权限即时生效。</p>
 
 <?php if ($course['status'] === 'active'): ?>
@@ -196,3 +232,10 @@ $assignmentStatus = ['draft' => ['草稿', 'secondary'], 'published' => ['已发
     </tbody>
 </table>
 </div>
+<?php
+$route = 'admin/courses/show';
+$params = ['id' => (int) $course['id'], 'hp' => $handoutPagination->page, 'ap' => $assignmentPagination->page];
+$pageParam = 'rp';
+$pagination = $rosterPagination;
+require __DIR__ . '/../../_pagination.php';
+?>

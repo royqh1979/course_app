@@ -84,6 +84,10 @@ final class FileStorage
             && !rename((string) $file['tmp_name'], $absolute)) {
             throw new RuntimeException('文件保存失败，请重试。');
         }
+        // transactional 内：登记新文件，异常时补偿删除
+        if ($this->pendingNew !== null) {
+            $this->pendingNew[] = $storedPath;
+        }
 
         return [
             'original_name' => $originalName,
@@ -95,8 +99,56 @@ final class FileStorage
         ];
     }
 
-    /** 删除磁盘文件（不存在时静默忽略） */
+    /** @var array<int, string>|null 操作中新建的文件（补偿删除用）；null 表示不在 transactional 内 */
+    private ?array $pendingNew = null;
+
+    /** @var array<int, string> 操作中登记待删的旧文件（提交成功后才删） */
+    private array $pendingDelete = [];
+
+    /**
+     * 事务 + 补偿：回调内 store() 的新文件登记入册、delete() 延后执行；
+     * 回调内 DB 写入须用 Database::transaction() 包裹。
+     * 回调正常返回 → 统一删除待删旧文件；任何异常 → 删除本次新建文件（补偿），旧文件不动。
+     * 极端情况（提交后进程被硬杀）残留孤儿文件，由孤立文件定期检查兜底。
+     * 约定：凡伴随 DB 写入的文件操作必须走本方法。
+     */
+    public function transactional(callable $work): mixed
+    {
+        if ($this->pendingNew !== null) {
+            throw new \LogicException('FileStorage::transactional 不支持嵌套调用');
+        }
+        $this->pendingNew = [];
+        $this->pendingDelete = [];
+        try {
+            $result = $work($this);
+            $toDelete = $this->pendingDelete;
+        } catch (\Throwable $e) {
+            foreach ($this->pendingNew as $path) {
+                $this->deleteNow($path);
+            }
+            throw $e;
+        } finally {
+            $this->pendingNew = null;
+            $this->pendingDelete = [];
+        }
+        foreach ($toDelete as $path) {
+            $this->deleteNow($path);
+        }
+        return $result;
+    }
+
+    /** 删除磁盘文件：transactional 内登记延后删除，否则立即删除 */
     public function delete(string $storedPath): void
+    {
+        if ($this->pendingNew !== null) {
+            $this->pendingDelete[] = $storedPath;
+            return;
+        }
+        $this->deleteNow($storedPath);
+    }
+
+    /** 立即删除磁盘文件（不存在时静默忽略） */
+    private function deleteNow(string $storedPath): void
     {
         $absolute = $this->absolutePath($storedPath);
         if (is_file($absolute)) {

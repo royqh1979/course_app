@@ -11,6 +11,7 @@ use App\Repositories\LogRepository;
 use App\Services\AuthService;
 use App\Services\FileStorage;
 use App\Support\App;
+use App\Support\Database;
 use App\Support\Session;
 use App\Support\View;
 use RuntimeException;
@@ -48,20 +49,24 @@ final class HandoutController extends BaseController
             redirect('?r=admin/courses/show&id=' . $course['id']);
         }
 
+        $description = trim((string) ($_POST['description'] ?? ''));
         try {
-            $meta = $this->storage->store(
-                $_FILES['file'] ?? [],
-                'courses/' . $course['id'] . '/handouts',
-                self::ALLOWED_EXTENSIONS,
-                $this->teacherMaxSize()
-            );
+            $id = $this->storage->transactional(function () use ($course, $title, $description) {
+                $meta = $this->storage->store(
+                    $_FILES['file'] ?? [],
+                    'courses/' . $course['id'] . '/handouts',
+                    self::ALLOWED_EXTENSIONS,
+                    $this->teacherMaxSize()
+                );
+                return Database::transaction(function () use ($meta, $course, $title, $description) {
+                    $fileId = $this->files->create($meta);
+                    return $this->handouts->create((int) $course['id'], $title, $description, $fileId);
+                });
+            });
         } catch (RuntimeException $e) {
             Session::flash('error', $e->getMessage());
             redirect('?r=admin/courses/show&id=' . $course['id']);
         }
-
-        $fileId = $this->files->create($meta);
-        $id = $this->handouts->create((int) $course['id'], $title, trim((string) ($_POST['description'] ?? '')), $fileId);
         $this->logs->addAuditLog('admin', (int) $admin['id'], 'handout.upload', 'handout', (string) $id, "课程 {$course['id']}：{$title}", $this->ip());
 
         Session::flash('success', '讲义已上传（草稿），发布后学生才可见。');
@@ -104,24 +109,29 @@ final class HandoutController extends BaseController
 
         $handout = $this->findHandout();
         try {
-            $meta = $this->storage->store(
-                $_FILES['file'] ?? [],
-                'courses/' . $handout['course_id'] . '/handouts',
-                self::ALLOWED_EXTENSIONS,
-                $this->teacherMaxSize()
-            );
+            $originalName = $this->storage->transactional(function () use ($handout) {
+                $meta = $this->storage->store(
+                    $_FILES['file'] ?? [],
+                    'courses/' . $handout['course_id'] . '/handouts',
+                    self::ALLOWED_EXTENSIONS,
+                    $this->teacherMaxSize()
+                );
+                // 数据库先指向新文件；旧文件引用归零才删行，磁盘文件在提交后清理
+                $oldPath = Database::transaction(function () use ($meta, $handout) {
+                    $newFileId = $this->files->create($meta);
+                    $this->handouts->replaceFile((int) $handout['id'], $newFileId);
+                    return $this->files->deleteIfUnused((int) $handout['file_id']);
+                });
+                if ($oldPath !== null) {
+                    $this->storage->delete($oldPath);
+                }
+                return $meta['original_name'];
+            });
         } catch (RuntimeException $e) {
             Session::flash('error', $e->getMessage());
             redirect('?r=admin/handouts/edit&id=' . $handout['id']);
         }
-
-        $newFileId = $this->files->create($meta);
-        $this->handouts->replaceFile((int) $handout['id'], $newFileId);
-
-        // 数据库已指向新文件，再清理旧文件与记录
-        $this->storage->delete((string) $handout['stored_path']);
-        $this->files->delete((int) $handout['file_id']);
-        $this->logs->addAuditLog('admin', (int) $admin['id'], 'handout.replace_file', 'handout', (string) $handout['id'], $meta['original_name'], $this->ip());
+        $this->logs->addAuditLog('admin', (int) $admin['id'], 'handout.replace_file', 'handout', (string) $handout['id'], $originalName, $this->ip());
 
         Session::flash('success', '讲义文件已替换。');
         redirect('?r=admin/courses/show&id=' . $handout['course_id']);

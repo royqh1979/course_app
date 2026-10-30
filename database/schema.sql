@@ -115,6 +115,36 @@ CREATE TABLE IF NOT EXISTS submissions (
     UNIQUE KEY uq_submissions_assignment_student (assignment_id, student_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 备课区（模板库）：导入课程 = 复制业务行、共享同一 files 行（file_id 引用）
+-- files 行仅当被 5 张引用表（handouts/assignment_attachments/submissions/library_handouts/library_assignment_attachments）都不再引用时才删除
+CREATE TABLE IF NOT EXISTS library_handouts (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(200) NOT NULL,
+    description TEXT,
+    file_id INT UNSIGNED NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS library_assignments (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(200) NOT NULL,
+    requirements TEXT,
+    allowed_extensions VARCHAR(255) NOT NULL DEFAULT 'doc,docx,xls,xlsx,ppt,pptx,zip',
+    max_file_size INT UNSIGNED NOT NULL DEFAULT 20971520,
+    allow_late TINYINT(1) NOT NULL DEFAULT 1,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS library_assignment_attachments (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    library_assignment_id INT UNSIGNED NOT NULL,
+    file_id INT UNSIGNED NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_library_attachments (library_assignment_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS auth_logs (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_type VARCHAR(10) NOT NULL,

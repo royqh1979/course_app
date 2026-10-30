@@ -8,6 +8,8 @@ use App\Repositories\AssignmentRepository;
 use App\Repositories\AttachmentRepository;
 use App\Repositories\CourseRepository;
 use App\Repositories\HandoutRepository;
+use App\Repositories\LibraryAssignmentRepository;
+use App\Repositories\LibraryHandoutRepository;
 use App\Repositories\SubmissionRepository;
 use App\Services\AuthService;
 use App\Services\FileStorage;
@@ -27,6 +29,8 @@ final class FileController extends BaseController
         private readonly AttachmentRepository $attachments,
         private readonly SubmissionRepository $submissions,
         private readonly CourseRepository $courses,
+        private readonly LibraryHandoutRepository $libraryHandouts,
+        private readonly LibraryAssignmentRepository $libraryAssignments,
         ?FileStorage $storage = null,
     ) {
         parent::__construct($auth);
@@ -86,6 +90,34 @@ final class FileController extends BaseController
             }
         }
         $this->storage->output((string) $submission['stored_path'], (string) $submission['original_name'], (string) $submission['mime_type']);
+    }
+
+    /** 备课区课件模板下载：仅教师 */
+    public function libraryHandout(): void
+    {
+        $user = $this->requireAnyUser();
+        if ($user['type'] !== AuthService::TYPE_ADMIN) {
+            $this->forbidden('您没有下载该文件的权限。');
+        }
+        $handout = $this->libraryHandouts->findById((int) ($_GET['id'] ?? 0));
+        if ($handout === null) {
+            $this->notFound('文件不存在。');
+        }
+        $this->storage->output((string) $handout['stored_path'], (string) $handout['original_name'], (string) $handout['mime_type']);
+    }
+
+    /** 备课区作业模板附件下载：仅教师 */
+    public function libraryAttachment(): void
+    {
+        $user = $this->requireAnyUser();
+        if ($user['type'] !== AuthService::TYPE_ADMIN) {
+            $this->forbidden('您没有下载该文件的权限。');
+        }
+        $attachment = $this->libraryAssignments->findAttachmentById((int) ($_GET['id'] ?? 0));
+        if ($attachment === null) {
+            $this->notFound('文件不存在。');
+        }
+        $this->storage->output((string) $attachment['stored_path'], (string) $attachment['original_name'], (string) $attachment['mime_type']);
     }
 
     /** 要求已登录（角色不限），返回当前用户 */

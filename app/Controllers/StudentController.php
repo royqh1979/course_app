@@ -12,6 +12,7 @@ use App\Repositories\HandoutRepository;
 use App\Repositories\SubmissionRepository;
 use App\Services\AuthService;
 use App\Services\FileStorage;
+use App\Support\Database;
 use App\Support\Session;
 use App\Support\View;
 use RuntimeException;
@@ -107,29 +108,34 @@ final class StudentController extends BaseController
 
         $extensions = array_filter(array_map('trim', explode(',', (string) $assignment['allowed_extensions'])));
         try {
-            $meta = $this->storage->store(
-                $_FILES['file'] ?? [],
-                'courses/' . $course['id'] . '/assignments/' . $assignment['id'] . '/submissions',
-                array_values($extensions),
-                (int) $assignment['max_file_size']
-            );
+            $resubmitted = $this->storage->transactional(function () use ($assignment, $course, $user, $existing, $extensions) {
+                $meta = $this->storage->store(
+                    $_FILES['file'] ?? [],
+                    'courses/' . $course['id'] . '/assignments/' . $assignment['id'] . '/submissions',
+                    array_values($extensions),
+                    (int) $assignment['max_file_size']
+                );
+                // 先保存新文件并更新数据库，提交成功后旧文件引用归零才清理
+                $oldPath = Database::transaction(function () use ($meta, $assignment, $user, $existing) {
+                    $fileId = $this->files->create($meta);
+                    if ($existing === null) {
+                        $this->submissions->insert((int) $assignment['id'], (int) $user['id'], $fileId);
+                        return null;
+                    }
+                    $this->submissions->replace((int) $existing['id'], $fileId);
+                    return $this->files->deleteIfUnused((int) $existing['file_id']);
+                });
+                if ($oldPath !== null) {
+                    $this->storage->delete($oldPath);
+                }
+                return $existing !== null;
+            });
         } catch (RuntimeException $e) {
             Session::flash('error', $e->getMessage());
             redirect('?r=student/assignment&id=' . $assignment['id']);
         }
 
-        $fileId = $this->files->create($meta);
-        if ($existing === null) {
-            $this->submissions->insert((int) $assignment['id'], (int) $user['id'], $fileId);
-            Session::flash('success', '提交成功。');
-        } else {
-            // 重新提交：先保存新文件并更新数据库，成功后再清理旧文件
-            $this->submissions->replace((int) $existing['id'], $fileId);
-            $this->storage->delete((string) $existing['stored_path']);
-            $this->files->delete((int) $existing['file_id']);
-            Session::flash('success', '已重新提交，旧文件已被替换。');
-        }
-
+        Session::flash('success', $resubmitted ? '已重新提交，旧文件已被替换。' : '提交成功。');
         redirect('?r=student/assignment&id=' . $assignment['id']);
     }
 

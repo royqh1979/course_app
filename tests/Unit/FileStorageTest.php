@@ -142,4 +142,50 @@ final class FileStorageTest extends TestCase
         // 再次删除不报错
         $this->storage->delete($meta['stored_path']);
     }
+
+    public function testTransactionalDeletesQueuedFilesAfterSuccess(): void
+    {
+        $old = $this->storage->store($this->fakeUpload($this->makeZip(), 'old.zip'), 'courses/1/handouts', ['zip'], 1024 * 1024);
+        $oldAbsolute = $this->storage->absolutePath($old['stored_path']);
+
+        $this->storage->transactional(function () use ($old) {
+            // 新文件落盘（登记）+ 旧文件登记待删
+            $this->storage->store($this->fakeUpload($this->makeZip(), 'new.zip'), 'courses/1/handouts', ['zip'], 1024 * 1024);
+            $this->storage->delete($old['stored_path']);
+            $this->assertFileExists($oldAbsolute = $this->storage->absolutePath($old['stored_path']), '事务未提交前旧文件不删');
+        });
+
+        $this->assertFileDoesNotExist($oldAbsolute, '提交成功后旧文件才被删除');
+    }
+
+    public function testTransactionalCompensatesNewFilesOnException(): void
+    {
+        $old = $this->storage->store($this->fakeUpload($this->makeZip(), 'old.zip'), 'courses/1/handouts', ['zip'], 1024 * 1024);
+        $oldAbsolute = $this->storage->absolutePath($old['stored_path']);
+        $newAbsolute = null;
+
+        try {
+            $this->storage->transactional(function () use ($old, &$newAbsolute) {
+                $meta = $this->storage->store($this->fakeUpload($this->makeZip(), 'new.zip'), 'courses/1/handouts', ['zip'], 1024 * 1024);
+                $newAbsolute = $this->storage->absolutePath($meta['stored_path']);
+                $this->storage->delete($old['stored_path']);
+                throw new \RuntimeException('模拟 DB 写入失败');
+            });
+            $this->fail('应抛出异常');
+        } catch (\RuntimeException) {
+            // 预期
+        }
+
+        $this->assertFileDoesNotExist($newAbsolute, '异常时新建文件必须补偿删除');
+        $this->assertFileExists($oldAbsolute, '异常时旧文件必须保留');
+    }
+
+    public function testTransactionalRejectsNesting(): void
+    {
+        $this->expectException(\LogicException::class);
+        $this->storage->transactional(function () {
+            $this->storage->transactional(function () {
+            });
+        });
+    }
 }

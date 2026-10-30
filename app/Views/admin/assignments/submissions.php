@@ -68,4 +68,10 @@
     </tbody>
 </table>
 </div>
+<?php
+$route = 'admin/assignments/submissions';
+$params = ['id' => (int) $assignment['id']];
+$pageParam = 'page';
+require __DIR__ . '/../../_pagination.php';
+?>
 <?php endif; ?>
