@@ -4,7 +4,7 @@
         <a class="btn btn-outline-primary" href="?r=admin/assignments/export&id=<?= (int) $assignment['id'] ?>">导出 Excel</a>
         <a class="btn btn-outline-primary" href="?r=admin/assignments/zip&id=<?= (int) $assignment['id'] ?>">打包下载 ZIP</a>
         <a class="btn btn-outline-secondary" href="?r=admin/assignments/submissions&id=<?= (int) $assignment['id'] ?>">提交/批改</a>
-        <a class="btn btn-outline-secondary" href="?r=admin/courses/show&id=<?= (int) $course['id'] ?>">返回课程</a>
+        <a class="btn btn-outline-secondary" href="?r=admin/courses/assignments&id=<?= (int) $course['id'] ?>">返回课程</a>
     </div>
 </div>
 <p class="text-muted">

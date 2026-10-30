@@ -119,23 +119,29 @@ final class PaginationFlowTest extends FeatureTestCase
         $client->userAgent = self::MOBILE_UA;
         $this->loginAdmin($client);
 
-        // 第一页：最新 20 个作业，名单最早学号在前
-        $page1 = $client->get('/?r=admin/courses/show&id=' . $courseId);
+        // 作业页第一页：最新 20 个作业
+        $page1 = $client->get('/?r=admin/courses/assignments&id=' . $courseId);
+        $this->assertSame(200, $page1->status);
         $this->assertStringContainsString('作业25', $page1->body);
         $this->assertStringNotContainsString('作业01', $page1->body);
-        $this->assertStringContainsString('2024001', $page1->body);
 
-        // 作业表翻到第二页（ap=2）：出现作业01；名单表仍在第一页（rp 默认 1）
-        $page = $client->get('/?r=admin/courses/show&id=' . $courseId . '&ap=2');
+        // 作业页第二页（page=2）：出现作业01，作业25消失
+        $page = $client->get('/?r=admin/courses/assignments&id=' . $courseId . '&page=2');
+        $this->assertSame(200, $page->status);
         $this->assertStringContainsString('作业01', $page->body);
         $this->assertStringNotContainsString('作业25', $page->body);
-        $this->assertStringContainsString('2024001', $page->body, '作业翻页不影响名单表（独立页码参数）');
 
-        // 名单表翻到第二页（rp=2）：学号 2024021 出现
-        $page = $client->get('/?r=admin/courses/show&id=' . $courseId . '&rp=2');
+        // 名单页第一页：最早学号在前
+        $page = $client->get('/?r=admin/courses/roster&id=' . $courseId);
+        $this->assertSame(200, $page->status);
+        $this->assertStringContainsString('2024001', $page->body);
+        $this->assertStringNotContainsString('2024021', $page->body);
+
+        // 名单页第二页：学号 2024021 出现
+        $page = $client->get('/?r=admin/courses/roster&id=' . $courseId . '&page=2');
+        $this->assertSame(200, $page->status);
         $this->assertStringContainsString('2024021', $page->body);
         $this->assertStringNotContainsString('2024001', $page->body);
-        $this->assertStringContainsString('作业25', $page->body, '名单翻页不影响作业表');
     }
 
     public function testOutOfRangePageClampsToLast(): void

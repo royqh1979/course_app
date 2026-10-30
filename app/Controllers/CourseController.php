@@ -72,7 +72,7 @@ final class CourseController extends BaseController
         $this->logs->addAuditLog('admin', (int) $admin['id'], 'course.create', 'course', (string) $id, "课程：{$name}", $this->ip());
 
         Session::flash('success', '课程已创建。');
-        redirect('?r=admin/courses/show&id=' . $id);
+        redirect('?r=admin/courses/handouts&id=' . $id);
     }
 
     public function edit(): void
@@ -117,7 +117,7 @@ final class CourseController extends BaseController
         $this->logs->addAuditLog('admin', (int) $admin['id'], 'course.update', 'course', (string) $id, "课程：{$name}", $this->ip());
 
         Session::flash('success', '课程已保存。');
-        redirect('?r=admin/courses/show&id=' . $id);
+        redirect('?r=admin/courses/handouts&id=' . $id);
     }
 
     /** 小组人数上下限：可选正整数，留空不限；非法则 flash 并跳转 */
@@ -154,7 +154,66 @@ final class CourseController extends BaseController
         redirect('?r=admin/courses');
     }
 
+    /** 课程详情旧入口：跳转到讲义页（各区块已拆分为独立页面） */
     public function show(): void
+    {
+        $this->requireUser(AuthService::TYPE_ADMIN);
+        $id = (int) ($_GET['id'] ?? 0);
+        if ($this->courses->findById($id) === null) {
+            $this->notFound('课程不存在。');
+        }
+        redirect('?r=admin/courses/handouts&id=' . $id);
+    }
+
+    /** 课程讲义页（上传 + 列表） */
+    public function handouts(): void
+    {
+        $data = $this->coursePageData('handouts');
+        $id = (int) $data['course']['id'];
+        $pagination = Pagination::fromRequest('page', $this->handouts->countByCourse($id));
+        View::render('admin/courses/handouts', $data + [
+            'handouts' => $this->handouts->listByCourse($id, false, $pagination),
+            'pagination' => $pagination,
+        ]);
+    }
+
+    /** 课程作业页（新建/导入 + 列表） */
+    public function assignments(): void
+    {
+        $data = $this->coursePageData('assignments');
+        $id = (int) $data['course']['id'];
+        $pagination = Pagination::fromRequest('page', $this->assignments->countByCourse($id));
+        View::render('admin/courses/assignments', $data + [
+            'assignments' => $this->assignments->listByCourse($id, false, $pagination),
+            'pagination' => $pagination,
+        ]);
+    }
+
+    /** 课程名单页（导入/添加 + 列表） */
+    public function roster(): void
+    {
+        $data = $this->coursePageData('roster');
+        $id = (int) $data['course']['id'];
+        $pagination = Pagination::fromRequest('page', $this->roster->countByCourse($id));
+        View::render('admin/courses/roster', $data + [
+            'roster' => $this->roster->listByCourse($id, $pagination),
+            'pagination' => $pagination,
+        ]);
+    }
+
+    /** 课程分组页（教师只读查看） */
+    public function groups(): void
+    {
+        $data = $this->coursePageData('groups');
+        $id = (int) $data['course']['id'];
+        View::render('admin/courses/groups', $data + [
+            'groups' => $this->groups->listByCourse($id),
+            'groupMembers' => $this->groups->membersByCourse($id),
+        ]);
+    }
+
+    /** 课程子页面公共数据：课程实体、tabs 计数、当前 tab */
+    private function coursePageData(string $tab): array
     {
         $this->requireUser(AuthService::TYPE_ADMIN);
         $id = (int) ($_GET['id'] ?? 0);
@@ -162,21 +221,16 @@ final class CourseController extends BaseController
         if ($course === null) {
             $this->notFound('课程不存在。');
         }
-        // 一页三表：讲义/作业/名单各自独立页码参数（hp/ap/rp）
-        $handoutPagination = Pagination::fromRequest('hp', $this->handouts->countByCourse($id));
-        $assignmentPagination = Pagination::fromRequest('ap', $this->assignments->countByCourse($id));
-        $rosterPagination = Pagination::fromRequest('rp', $this->roster->countByCourse($id));
-        View::render('admin/courses/show', [
+        return [
             'title' => $course['name'],
             'course' => $course,
-            'roster' => $this->roster->listByCourse($id, $rosterPagination),
-            'handouts' => $this->handouts->listByCourse($id, false, $handoutPagination),
-            'assignments' => $this->assignments->listByCourse($id, false, $assignmentPagination),
-            'handoutPagination' => $handoutPagination,
-            'assignmentPagination' => $assignmentPagination,
-            'rosterPagination' => $rosterPagination,
-            'groups' => $this->groups->listByCourse($id),
-            'groupMembers' => $this->groups->membersByCourse($id),
-        ]);
+            'tab' => $tab,
+            'tabCounts' => [
+                'handouts' => $this->handouts->countByCourse($id),
+                'assignments' => $this->assignments->countByCourse($id),
+                'roster' => $this->roster->countByCourse($id),
+                'groups' => $this->groups->countByCourse($id),
+            ],
+        ];
     }
 }

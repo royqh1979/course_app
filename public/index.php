@@ -22,6 +22,7 @@ use App\Repositories\FileRepository;
 use App\Repositories\GroupRepository;
 use App\Repositories\HandoutRepository;
 use App\Repositories\LibraryAssignmentRepository;
+use App\Repositories\LibraryFolderRepository;
 use App\Repositories\LibraryHandoutRepository;
 use App\Repositories\LogRepository;
 use App\Repositories\RosterRepository;
@@ -60,6 +61,7 @@ $submissions = new SubmissionRepository();
 $files = new FileRepository();
 $libraryHandouts = new LibraryHandoutRepository();
 $libraryAssignments = new LibraryAssignmentRepository();
+$libraryFolders = new LibraryFolderRepository();
 $groups = new GroupRepository();
 
 $authController = new AuthController($auth, $students, $logs);
@@ -72,7 +74,7 @@ $qrCodeController = new QrCodeController($auth);
 $handoutController = new HandoutController($auth, $handouts, $courses, $files, $logs);
 $assignmentController = new AssignmentController($auth, $assignments, $courses, $attachments, $files, $logs, $submissions);
 $fileController = new FileController($auth, $handouts, $assignments, $attachments, $submissions, $courses, $libraryHandouts, $libraryAssignments);
-$libraryController = new LibraryController($auth, $libraryHandouts, $libraryAssignments, $handouts, $assignments, $attachments, $courses, $files, $logs);
+$libraryController = new LibraryController($auth, $libraryHandouts, $libraryAssignments, $libraryFolders, $handouts, $assignments, $attachments, $courses, $files, $logs);
 $logController = new LogController($auth, $logs);
 
 $home = static function () use ($auth): void {
@@ -102,6 +104,10 @@ match ([$method, $route]) {
     ['POST', 'admin/courses/update'] => $courseController->update(),
     ['POST', 'admin/courses/archive'] => $courseController->archive(),
     ['GET', 'admin/courses/show'] => $courseController->show(),
+    ['GET', 'admin/courses/handouts'] => $courseController->handouts(),
+    ['GET', 'admin/courses/assignments'] => $courseController->assignments(),
+    ['GET', 'admin/courses/roster'] => $courseController->roster(),
+    ['GET', 'admin/courses/groups'] => $courseController->groups(),
     ['POST', 'admin/roster/add'] => $rosterController->add(),
     ['POST', 'admin/roster/delete'] => $rosterController->delete(),
     ['GET', 'admin/roster/template'] => $rosterController->template(),
@@ -136,6 +142,11 @@ match ([$method, $route]) {
     ['POST', 'admin/assignments/attachments/add'] => $assignmentController->addAttachment(),
     ['POST', 'admin/assignments/attachments/delete'] => $assignmentController->deleteAttachment(),
     ['GET', 'admin/library'] => $libraryController->index(),
+    ['GET', 'admin/library/handouts'] => $libraryController->handouts(),
+    ['GET', 'admin/library/assignments'] => $libraryController->assignments(),
+    ['POST', 'admin/library/folders/store'] => $libraryController->folderStore(),
+    ['POST', 'admin/library/folders/rename'] => $libraryController->folderRename(),
+    ['POST', 'admin/library/folders/delete'] => $libraryController->folderDelete(),
     ['POST', 'admin/library/handouts/store'] => $libraryController->handoutStore(),
     ['GET', 'admin/library/handouts/edit'] => $libraryController->handoutEdit(),
     ['POST', 'admin/library/handouts/update'] => $libraryController->handoutUpdate(),
@@ -158,6 +169,9 @@ match ([$method, $route]) {
     ['GET', 'submission/download'] => $fileController->submission(),
     ['GET', 'student/home'] => $studentController->home(),
     ['GET', 'student/course'] => $studentController->course(),
+    ['GET', 'student/course/handouts'] => $studentController->handouts(),
+    ['GET', 'student/course/assignments'] => $studentController->assignments(),
+    ['GET', 'student/course/groups'] => $studentController->groups(),
     ['GET', 'student/assignment'] => $studentController->assignment(),
     ['POST', 'student/submissions/submit'] => $studentController->submit(),
     ['GET', 'student/group'] => $groupController->show(),

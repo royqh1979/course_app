@@ -117,13 +117,13 @@ final class SubmissionFlowTest extends FeatureTestCase
         // 草稿：学生课程页不可见，详情页 404（验收 6）
         $student = new HttpClient(self::$baseUrl);
         $this->loginStudent($student);
-        $this->assertStringNotContainsString('第一次作业', $student->get('/?r=student/course&id=' . $courseId)->body);
+        $this->assertStringNotContainsString('第一次作业', $student->get('/?r=student/course/assignments&id=' . $courseId)->body);
         $this->assertSame(404, $student->get('/?r=student/assignment&id=' . $assignmentId)->status);
 
         // 发布后可见
-        $page = $admin->get('/?r=admin/courses/show&id=' . $courseId);
+        $page = $admin->get('/?r=admin/courses/assignments&id=' . $courseId);
         $admin->post('/?r=admin/assignments/publish', ['_csrf' => $page->csrfToken() ?? '', 'id' => (string) $assignmentId]);
-        $this->assertStringContainsString('第一次作业', $student->get('/?r=student/course&id=' . $courseId)->body);
+        $this->assertStringContainsString('第一次作业', $student->get('/?r=student/course/assignments&id=' . $courseId)->body);
         $detail = $student->get('/?r=student/assignment&id=' . $assignmentId);
         $this->assertSame(200, $detail->status);
         $this->assertStringContainsString('完成课后习题 1-5', $detail->body);

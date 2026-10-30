@@ -1,7 +1,7 @@
 <?php use App\Services\Csrf; ?>
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h3 m-0">名单导入预校验 — <?= e($course['name']) ?></h1>
-    <a class="btn btn-outline-secondary" href="?r=admin/courses/show&id=<?= (int) $course['id'] ?>">取消并返回</a>
+    <a class="btn btn-outline-secondary" href="?r=admin/courses/roster&id=<?= (int) $course['id'] ?>">取消并返回</a>
 </div>
 <p class="text-muted">文件：<?= e($fileName) ?>（当前尚未写入数据库，确认后才生效）</p>
 

@@ -77,6 +77,13 @@ final class GroupRepository
         return $stmt->fetchAll();
     }
 
+    public function countByCourse(int $courseId): int
+    {
+        $stmt = $this->db()->prepare('SELECT COUNT(*) FROM course_groups WHERE course_id = :course_id');
+        $stmt->execute(['course_id' => $courseId]);
+        return (int) $stmt->fetchColumn();
+    }
+
     /** 某组 active 成员（含学生信息） */
     public function members(int $groupId, string $status = 'active'): array
     {

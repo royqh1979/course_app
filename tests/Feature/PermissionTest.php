@@ -52,8 +52,8 @@ final class PermissionTest extends FeatureTestCase
         $client = new HttpClient(self::$baseUrl);
         $this->login($client, 'student', '2024001', 'student-pass-123');
 
-        $this->assertSame(200, $client->get('/?r=student/course&id=' . $ownId)->status);
-        $this->assertSame(403, $client->get('/?r=student/course&id=' . $otherId)->status, '直接输入他人课程 URL 必须被服务端拒绝');
+        $this->assertSame(200, $client->get('/?r=student/course/handouts&id=' . $ownId)->status);
+        $this->assertSame(403, $client->get('/?r=student/course/handouts&id=' . $otherId)->status, '直接输入他人课程 URL 必须被服务端拒绝');
     }
 
     public function testRosterGrantAndRevokeTakeEffectImmediatelyOverHttp(): void
@@ -65,15 +65,15 @@ final class PermissionTest extends FeatureTestCase
 
         $client = new HttpClient(self::$baseUrl);
         $this->login($client, 'student', '2024001', 'student-pass-123');
-        $this->assertSame(403, $client->get('/?r=student/course&id=' . $courseId)->status);
+        $this->assertSame(403, $client->get('/?r=student/course/handouts&id=' . $courseId)->status);
 
         // 加入名单：无需任何匹配操作，下次请求即生效
         $rosterId = $roster->add($courseId, '2024001', '张三', '');
-        $this->assertSame(200, $client->get('/?r=student/course&id=' . $courseId)->status);
+        $this->assertSame(200, $client->get('/?r=student/course/handouts&id=' . $courseId)->status);
 
         // 移出名单：权限立即失效
         $roster->remove($rosterId);
-        $this->assertSame(403, $client->get('/?r=student/course&id=' . $courseId)->status);
+        $this->assertSame(403, $client->get('/?r=student/course/handouts&id=' . $courseId)->status);
     }
 
     public function testGuestRedirectedToLogin(): void
@@ -114,14 +114,14 @@ final class PermissionTest extends FeatureTestCase
             'description' => '课程简介',
         ]);
         $this->assertSame(302, $res->status);
-        $this->assertStringContainsString('r=admin/courses/show', $res->header('location') ?? '');
+        $this->assertStringContainsString('r=admin/courses/handouts', $res->header('location') ?? '');
 
         preg_match('/id=(\d+)/', $res->header('location') ?? '', $m);
         $courseId = (int) ($m[1] ?? 0);
         $this->assertGreaterThan(0, $courseId);
 
         // 添加名单
-        $page = $client->get('/?r=admin/courses/show&id=' . $courseId);
+        $page = $client->get('/?r=admin/courses/roster&id=' . $courseId);
         $res = $client->post('/?r=admin/roster/add', [
             '_csrf' => $page->csrfToken() ?? '',
             'course_id' => (string) $courseId,
@@ -131,7 +131,7 @@ final class PermissionTest extends FeatureTestCase
         ]);
         $this->assertSame(302, $res->status);
 
-        $page = $client->get('/?r=admin/courses/show&id=' . $courseId);
+        $page = $client->get('/?r=admin/courses/roster&id=' . $courseId);
         $this->assertStringContainsString('2024001', $page->body);
         $this->assertStringContainsString('张三', $page->body);
 

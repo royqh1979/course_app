@@ -27,7 +27,7 @@ $layoutIsStudent = ($layoutUser['type'] ?? '') === 'student';
             <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                 <?php if ($layoutIsAdmin): ?>
                 <li class="nav-item"><a class="nav-link" href="?r=admin/courses">课程管理</a></li>
-                <li class="nav-item"><a class="nav-link" href="?r=admin/library">备课区</a></li>
+                <li class="nav-item"><a class="nav-link" href="?r=admin/library/handouts">备课区</a></li>
                 <li class="nav-item"><a class="nav-link" href="?r=admin/students">学生账号</a></li>
                 <li class="nav-item"><a class="nav-link" href="?r=admin/logs/auth">日志</a></li>
                 <li class="nav-item"><a class="nav-link" href="?r=admin/qrcode">注册二维码</a></li>

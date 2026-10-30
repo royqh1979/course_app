@@ -7,7 +7,7 @@ $canSubmit = $submitBlock === null;
 ?>
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h3 m-0"><?= e($assignment['title']) ?></h1>
-    <a class="btn btn-outline-secondary" href="?r=student/course&id=<?= (int) $course['id'] ?>">返回课程</a>
+    <a class="btn btn-outline-secondary" href="?r=student/course/assignments&id=<?= (int) $course['id'] ?>">返回课程</a>
 </div>
 
 <p class="text-muted">

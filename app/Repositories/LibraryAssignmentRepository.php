@@ -20,15 +20,16 @@ final class LibraryAssignmentRepository
 
     /**
      * @param array{title: string, requirements: ?string, allowed_extensions: string,
-     *              max_file_size: int, allow_late: bool} $data
+     *              max_file_size: int, allow_late: bool, folder_id?: ?int} $data
      */
     public function create(array $data): int
     {
         $stmt = $this->db()->prepare(
-            'INSERT INTO library_assignments (title, requirements, allowed_extensions, max_file_size, allow_late)
-             VALUES (:title, :requirements, :allowed_extensions, :max_file_size, :allow_late)'
+            'INSERT INTO library_assignments (folder_id, title, requirements, allowed_extensions, max_file_size, allow_late)
+             VALUES (:folder_id, :title, :requirements, :allowed_extensions, :max_file_size, :allow_late)'
         );
         $stmt->execute([
+            'folder_id' => $data['folder_id'] ?? null,
             'title' => $data['title'],
             'requirements' => $data['requirements'] === '' || $data['requirements'] === null ? null : $data['requirements'],
             'allowed_extensions' => $data['allowed_extensions'],
@@ -42,11 +43,12 @@ final class LibraryAssignmentRepository
     {
         $stmt = $this->db()->prepare(
             'UPDATE library_assignments
-             SET title = :title, requirements = :requirements, allowed_extensions = :allowed_extensions,
+             SET folder_id = :folder_id, title = :title, requirements = :requirements, allowed_extensions = :allowed_extensions,
                  max_file_size = :max_file_size, allow_late = :allow_late
              WHERE id = :id'
         );
         $stmt->execute([
+            'folder_id' => $data['folder_id'] ?? null,
             'title' => $data['title'],
             'requirements' => $data['requirements'] === '' || $data['requirements'] === null ? null : $data['requirements'],
             'allowed_extensions' => $data['allowed_extensions'],
@@ -85,6 +87,35 @@ final class LibraryAssignmentRepository
             $sql .= ' LIMIT :limit OFFSET :offset';
         }
         $stmt = $this->db()->prepare($sql);
+        if ($pagination !== null) {
+            $stmt->bindValue('limit', $pagination->limit(), PDO::PARAM_INT);
+            $stmt->bindValue('offset', $pagination->offset(), PDO::PARAM_INT);
+        }
+        $stmt->execute();
+        return $stmt->fetchAll();
+    }
+
+    public function countByFolder(?int $folderId): int
+    {
+        $stmt = $this->db()->prepare('SELECT COUNT(*) FROM library_assignments WHERE folder_id <=> :folder_id');
+        $stmt->execute(['folder_id' => $folderId]);
+        return (int) $stmt->fetchColumn();
+    }
+
+    /** @return array<int, array> */
+    public function listByFolder(?int $folderId, ?Pagination $pagination = null): array
+    {
+        $sql = 'SELECT la.*,
+                       (SELECT COUNT(*) FROM library_assignment_attachments a
+                        WHERE a.library_assignment_id = la.id) AS attachment_count
+                FROM library_assignments la
+                WHERE la.folder_id <=> :folder_id
+                ORDER BY la.id DESC';
+        if ($pagination !== null) {
+            $sql .= ' LIMIT :limit OFFSET :offset';
+        }
+        $stmt = $this->db()->prepare($sql);
+        $stmt->bindValue('folder_id', $folderId);
         if ($pagination !== null) {
             $stmt->bindValue('limit', $pagination->limit(), PDO::PARAM_INT);
             $stmt->bindValue('offset', $pagination->offset(), PDO::PARAM_INT);

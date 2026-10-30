@@ -1,7 +1,7 @@
 <?php use App\Services\Csrf; ?>
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h3 m-0">小组：<?= e($group['name']) ?></h1>
-    <a class="btn btn-outline-secondary" href="?r=student/course&id=<?= (int) $course['id'] ?>">返回课程</a>
+    <a class="btn btn-outline-secondary" href="?r=student/course/groups&id=<?= (int) $course['id'] ?>">返回课程</a>
 </div>
 <p class="text-muted">
     <?= e($course['name']) ?>｜组长：<?= e($group['leader_name']) ?>（<?= e($group['leader_no']) ?>）

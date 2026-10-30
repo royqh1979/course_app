@@ -4,7 +4,7 @@
 <?php else: ?>
 <div class="list-group">
     <?php foreach ($courses as $course): ?>
-    <a class="list-group-item list-group-item-action" href="?r=student/course&id=<?= (int) $course['id'] ?>">
+    <a class="list-group-item list-group-item-action" href="?r=student/course/handouts&id=<?= (int) $course['id'] ?>">
         <strong><?= e($course['name']) ?></strong>
         <span class="text-muted ms-2"><?= e($course['term']) ?></span>
     </a>

@@ -70,7 +70,7 @@ final class HandoutFlowTest extends FeatureTestCase
         $this->loginAdmin($admin);
 
         // 上传讲义（草稿）
-        $page = $admin->get('/?r=admin/courses/show&id=' . $courseId);
+        $page = $admin->get('/?r=admin/courses/handouts&id=' . $courseId);
         $res = $admin->upload('/?r=admin/handouts/store', 'file', $this->makePdf(), '第一章讲义.pdf', [
             '_csrf' => $page->csrfToken() ?? '',
             'course_id' => (string) $courseId,
@@ -93,15 +93,15 @@ final class HandoutFlowTest extends FeatureTestCase
         // 验收 6：草稿对学生不可见
         $student = new HttpClient(self::$baseUrl);
         $this->login($student, 'student', '2024001', 'student-pass-123');
-        $coursePage = $student->get('/?r=student/course&id=' . $courseId);
+        $coursePage = $student->get('/?r=student/course/handouts&id=' . $courseId);
         $this->assertStringNotContainsString('第一章 链表', $coursePage->body);
         $this->assertSame(403, $student->get('/?r=handout/download&id=' . $handoutId)->status, '草稿讲义学生下载应被拒绝');
 
         // 发布
-        $page = $admin->get('/?r=admin/courses/show&id=' . $courseId);
+        $page = $admin->get('/?r=admin/courses/handouts&id=' . $courseId);
         $admin->post('/?r=admin/handouts/publish', ['_csrf' => $page->csrfToken() ?? '', 'id' => (string) $handoutId]);
 
-        $coursePage = $student->get('/?r=student/course&id=' . $courseId);
+        $coursePage = $student->get('/?r=student/course/handouts&id=' . $courseId);
         $this->assertStringContainsString('第一章 链表', $coursePage->body);
 
         // 学生下载：成功且下载文件名为原始文件名
@@ -111,9 +111,9 @@ final class HandoutFlowTest extends FeatureTestCase
         $this->assertStringContainsString(rawurlencode('第一章讲义.pdf'), $download->header('content-disposition') ?? '');
 
         // 下线后学生不可见不可下载
-        $page = $admin->get('/?r=admin/courses/show&id=' . $courseId);
+        $page = $admin->get('/?r=admin/courses/handouts&id=' . $courseId);
         $admin->post('/?r=admin/handouts/offline', ['_csrf' => $page->csrfToken() ?? '', 'id' => (string) $handoutId]);
-        $this->assertStringNotContainsString('第一章 链表', $student->get('/?r=student/course&id=' . $courseId)->body);
+        $this->assertStringNotContainsString('第一章 链表', $student->get('/?r=student/course/handouts&id=' . $courseId)->body);
         $this->assertSame(403, $student->get('/?r=handout/download&id=' . $handoutId)->status);
     }
 
@@ -127,7 +127,7 @@ final class HandoutFlowTest extends FeatureTestCase
         file_put_contents($txt, 'not a handout');
         $this->tmpFiles[] = $txt;
 
-        $page = $admin->get('/?r=admin/courses/show&id=' . $courseId);
+        $page = $admin->get('/?r=admin/courses/handouts&id=' . $courseId);
         $admin->upload('/?r=admin/handouts/store', 'file', $txt, '讲义.txt', [
             '_csrf' => $page->csrfToken() ?? '',
             'course_id' => (string) $courseId,
@@ -135,7 +135,7 @@ final class HandoutFlowTest extends FeatureTestCase
         ]);
         $this->assertSame([], (new HandoutRepository())->listByCourse($courseId), '非法后缀不得入库（验收 7）');
 
-        $page = $admin->get('/?r=admin/courses/show&id=' . $courseId);
+        $page = $admin->get('/?r=admin/courses/handouts&id=' . $courseId);
         $this->assertStringContainsString('不允许的文件类型', $page->body);
     }
 
@@ -144,7 +144,7 @@ final class HandoutFlowTest extends FeatureTestCase
         $courseId = $this->setupCourseWithStudent();
         $admin = new HttpClient(self::$baseUrl);
         $this->loginAdmin($admin);
-        $page = $admin->get('/?r=admin/courses/show&id=' . $courseId);
+        $page = $admin->get('/?r=admin/courses/handouts&id=' . $courseId);
         $admin->upload('/?r=admin/handouts/store', 'file', $this->makePdf(), '讲义.pdf', [
             '_csrf' => $page->csrfToken() ?? '',
             'course_id' => (string) $courseId,
@@ -172,7 +172,7 @@ final class HandoutFlowTest extends FeatureTestCase
         $courseId = $this->setupCourseWithStudent();
         $admin = new HttpClient(self::$baseUrl);
         $this->loginAdmin($admin);
-        $page = $admin->get('/?r=admin/courses/show&id=' . $courseId);
+        $page = $admin->get('/?r=admin/courses/handouts&id=' . $courseId);
         $admin->upload('/?r=admin/handouts/store', 'file', $this->makePdf(), '旧版.pdf', [
             '_csrf' => $page->csrfToken() ?? '',
             'course_id' => (string) $courseId,

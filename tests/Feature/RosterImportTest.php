@@ -97,7 +97,7 @@ final class RosterImportTest extends FeatureTestCase
         $this->loginAdmin($client);
 
         // 上传并预校验：展示统计，不写库
-        $page = $client->get('/?r=admin/courses/show&id=' . $courseId);
+        $page = $client->get('/?r=admin/courses/roster&id=' . $courseId);
         $preview = $client->upload('/?r=admin/roster/import', 'roster_file', $file, '名单.xlsx', [
             '_csrf' => $page->csrfToken() ?? '',
             'course_id' => (string) $courseId,
@@ -137,14 +137,14 @@ final class RosterImportTest extends FeatureTestCase
         $client = new HttpClient(self::$baseUrl);
         $this->loginAdmin($client);
 
-        $page = $client->get('/?r=admin/courses/show&id=' . $courseId);
+        $page = $client->get('/?r=admin/courses/roster&id=' . $courseId);
         $res = $client->upload('/?r=admin/roster/import', 'roster_file', $file, '名单.txt', [
             '_csrf' => $page->csrfToken() ?? '',
             'course_id' => (string) $courseId,
         ]);
         $this->assertSame(302, $res->status, '非法后缀应被拒绝并跳回课程页');
 
-        $follow = $client->get('/?r=admin/courses/show&id=' . $courseId);
+        $follow = $client->get('/?r=admin/courses/roster&id=' . $courseId);
         $this->assertStringContainsString('仅支持', $follow->body);
         $this->assertSame([], (new RosterRepository())->listByCourse($courseId));
     }

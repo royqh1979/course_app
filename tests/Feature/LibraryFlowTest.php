@@ -59,7 +59,7 @@ final class LibraryFlowTest extends FeatureTestCase
     /** 上传课件模板，返回模板 ID */
     private function uploadTemplate(HttpClient $admin, string $title = '第一章课件'): int
     {
-        $page = $admin->get('/?r=admin/library');
+        $page = $admin->get('/?r=admin/library/handouts');
         $admin->upload('/?r=admin/library/handouts/store', 'file', $this->makePdf(), '第一章.pdf', [
             '_csrf' => $page->csrfToken() ?? '',
             'title' => $title,
@@ -71,12 +71,12 @@ final class LibraryFlowTest extends FeatureTestCase
     public function testLibraryRequiresAdmin(): void
     {
         $guest = new HttpClient(self::$baseUrl);
-        $this->assertSame(302, $guest->get('/?r=admin/library')->status);
+        $this->assertSame(302, $guest->get('/?r=admin/library/handouts')->status);
 
         $this->createStudent();
         $student = new HttpClient(self::$baseUrl);
         $this->login($student, 'student', '2024001', 'student-pass-123');
-        $res = $student->get('/?r=admin/library');
+        $res = $student->get('/?r=admin/library/handouts');
         $this->assertStringContainsString('r=login', $res->header('location') ?? '');
         $this->assertSame(403, $student->get('/?r=library/handout/download&id=1')->status);
     }
@@ -93,6 +93,7 @@ final class LibraryFlowTest extends FeatureTestCase
 
         // 导入选择页
         $select = $admin->get('/?r=admin/library/import&course_id=' . $courseId . '&type=handout');
+        $this->assertSame(200, $select->status);
         $this->assertStringContainsString('第一章课件', $select->body);
 
         // 导入为草稿
@@ -109,7 +110,7 @@ final class LibraryFlowTest extends FeatureTestCase
         $this->assertSame('draft', $courseHandout['status'], '导入后为草稿');
 
         // 删除模板：课程副本不受影响
-        $page = $admin->get('/?r=admin/library');
+        $page = $admin->get('/?r=admin/library/handouts');
         $admin->post('/?r=admin/library/handouts/delete', [
             '_csrf' => $page->csrfToken() ?? '',
             'id' => (string) $templateId,
@@ -117,7 +118,7 @@ final class LibraryFlowTest extends FeatureTestCase
         $this->assertSame([], (new LibraryHandoutRepository())->listAll());
 
         // 发布课程副本，学生可见可下载（文件未被模板删除波及）
-        $page = $admin->get('/?r=admin/courses/show&id=' . $courseId);
+        $page = $admin->get('/?r=admin/courses/handouts&id=' . $courseId);
         $admin->post('/?r=admin/handouts/publish', [
             '_csrf' => $page->csrfToken() ?? '',
             'id' => (string) $courseHandout['id'],
@@ -125,7 +126,7 @@ final class LibraryFlowTest extends FeatureTestCase
 
         $student = new HttpClient(self::$baseUrl);
         $this->login($student, 'student', '2024001', 'student-pass-123');
-        $this->assertStringContainsString('第一章课件', $student->get('/?r=student/course&id=' . $courseId)->body);
+        $this->assertStringContainsString('第一章课件', $student->get('/?r=student/course/handouts&id=' . $courseId)->body);
         $download = $student->get('/?r=handout/download&id=' . $courseHandout['id']);
         $this->assertSame(200, $download->status, '模板删除后课程副本仍可下载');
         $this->assertStringContainsString('%PDF-1.4', $download->body);
@@ -174,7 +175,7 @@ final class LibraryFlowTest extends FeatureTestCase
         $this->loginAdmin($admin);
 
         // 课程里上传一份讲义
-        $page = $admin->get('/?r=admin/courses/show&id=' . $courseId);
+        $page = $admin->get('/?r=admin/courses/handouts&id=' . $courseId);
         $admin->upload('/?r=admin/handouts/store', 'file', $this->makePdf(), '课程内讲义.pdf', [
             '_csrf' => $page->csrfToken() ?? '',
             'course_id' => (string) $courseId,
@@ -183,7 +184,7 @@ final class LibraryFlowTest extends FeatureTestCase
         $handout = (new HandoutRepository())->listByCourse($courseId)[0];
 
         // 存回备课区
-        $page = $admin->get('/?r=admin/courses/show&id=' . $courseId);
+        $page = $admin->get('/?r=admin/courses/handouts&id=' . $courseId);
         $res = $admin->post('/?r=admin/library/save-back', [
             '_csrf' => $page->csrfToken() ?? '',
             'type' => 'handout',
@@ -209,7 +210,7 @@ final class LibraryFlowTest extends FeatureTestCase
         $courseId = $courses->create('数据结构', null, '', null);
         $courses->archive($courseId);
 
-        $page = $admin->get('/?r=admin/library');
+        $page = $admin->get('/?r=admin/library/handouts');
         $admin->post('/?r=admin/library/import', [
             '_csrf' => $page->csrfToken() ?? '',
             'course_id' => (string) $courseId,
@@ -217,5 +218,155 @@ final class LibraryFlowTest extends FeatureTestCase
             'template_id' => (string) $templateId,
         ]);
         $this->assertSame([], (new HandoutRepository())->listByCourse($courseId), '归档课程禁止导入');
+    }
+
+    public function testFolderOrganizeFlow(): void
+    {
+        $courseId = (new CourseRepository())->create('数据结构', null, '', null);
+        $admin = new HttpClient(self::$baseUrl);
+        $this->loginAdmin($admin);
+
+        // 备课区两个列表页均正常渲染（历史 500 盲区）
+        $handoutsPage = $admin->get('/?r=admin/library/handouts');
+        $assignmentsPage = $admin->get('/?r=admin/library/assignments');
+        $this->assertSame(200, $handoutsPage->status);
+        $this->assertSame(200, $assignmentsPage->status);
+
+        // 建课件文件夹「第1章」（根下），再建子文件夹「习题」
+        $res = $admin->post('/?r=admin/library/folders/store', [
+            '_csrf' => $handoutsPage->csrfToken() ?? '',
+            'item_type' => 'handout',
+            'parent_id' => '',
+            'name' => '第1章',
+        ]);
+        $this->assertSame(302, $res->status);
+        $folders = new \App\Repositories\LibraryFolderRepository();
+        $chapter = $folders->listByType('handout')[0];
+        $this->assertSame('第1章', $chapter['name']);
+
+        $page = $admin->get('/?r=admin/library/handouts&folder_id=' . $chapter['id']);
+        $res = $admin->post('/?r=admin/library/folders/store', [
+            '_csrf' => $page->csrfToken() ?? '',
+            'item_type' => 'handout',
+            'parent_id' => (string) $chapter['id'],
+            'name' => '习题',
+        ]);
+        $this->assertSame(302, $res->status);
+        $sub = $folders->childrenOf((int) $chapter['id'], 'handout')[0];
+        $this->assertSame('习题', $sub['name']);
+
+        // 在子文件夹上传课件模板
+        $page = $admin->get('/?r=admin/library/handouts&folder_id=' . $sub['id']);
+        $admin->upload('/?r=admin/library/handouts/store', 'file', $this->makePdf(), '课件A.pdf', [
+            '_csrf' => $page->csrfToken() ?? '',
+            'folder_id' => (string) $sub['id'],
+            'title' => '课件A',
+        ]);
+        $repo = new LibraryHandoutRepository();
+        $this->assertCount(1, $repo->listAll());
+        $template = $repo->listAll()[0];
+        $this->assertSame((int) $sub['id'], (int) $template['folder_id']);
+
+        // 子文件夹列表只显示本文件夹内容；根目录看不到
+        $page = $admin->get('/?r=admin/library/handouts&folder_id=' . $sub['id']);
+        $this->assertSame(200, $page->status);
+        $this->assertStringContainsString('课件A', $page->body);
+        $rootPage = $admin->get('/?r=admin/library/handouts');
+        $this->assertStringNotContainsString('课件A', $rootPage->body);
+        $this->assertStringContainsString('第1章', $rootPage->body, '根目录显示子文件夹入口');
+
+        // 树徽标：根目录显示递归计数 1
+        $this->assertStringContainsString('>1</span>', $rootPage->body);
+
+        // 作业树独立：课件文件夹不出现在作业页
+        $assignmentsPage = $admin->get('/?r=admin/library/assignments');
+        $this->assertStringNotContainsString('第1章', $assignmentsPage->body);
+
+        // 深度限制：第3层下不能再建（chapter=1, sub=2, 再建=3 层允许，其下禁止）
+        $deepPage = $admin->get('/?r=admin/library/handouts&folder_id=' . $sub['id']);
+        $res = $admin->post('/?r=admin/library/folders/store', [
+            '_csrf' => $deepPage->csrfToken() ?? '',
+            'item_type' => 'handout',
+            'parent_id' => (string) $sub['id'],
+            'name' => '第3层',
+        ]);
+        $this->assertSame(302, $res->status);
+        $level3 = $folders->childrenOf((int) $sub['id'], 'handout')[0];
+        $deepPage = $admin->get('/?r=admin/library/handouts&folder_id=' . $level3['id']);
+        $res = $admin->post('/?r=admin/library/folders/store', [
+            '_csrf' => $deepPage->csrfToken() ?? '',
+            'item_type' => 'handout',
+            'parent_id' => (string) $level3['id'],
+            'name' => '超限',
+        ]);
+        $this->assertSame(302, $res->status);
+        $this->assertCount(0, $folders->childrenOf((int) $level3['id'], 'handout'), '最多 3 层');
+
+        // 非空文件夹拒绝删除；先移走条目、删除子树后可删
+        $page = $admin->get('/?r=admin/library/handouts&folder_id=' . $chapter['id']);
+        $admin->post('/?r=admin/library/folders/delete', [
+            '_csrf' => $page->csrfToken() ?? '',
+            'id' => (string) $chapter['id'],
+        ]);
+        $this->assertNotNull($folders->findById((int) $chapter['id']), '非空文件夹不可删除');
+
+        // 模板移到根目录后，子树逐级删除成功
+        $edit = $admin->get('/?r=admin/library/handouts/edit&id=' . $template['id']);
+        $admin->post('/?r=admin/library/handouts/update', [
+            '_csrf' => $edit->csrfToken() ?? '',
+            'id' => (string) $template['id'],
+            'title' => '课件A',
+            'folder_id' => '',
+        ]);
+        $page = $admin->get('/?r=admin/library/handouts&folder_id=' . $level3['id']);
+        $admin->post('/?r=admin/library/folders/delete', [
+            '_csrf' => $page->csrfToken() ?? '',
+            'id' => (string) $level3['id'],
+        ]);
+        $page = $admin->get('/?r=admin/library/handouts&folder_id=' . $chapter['id']);
+        $admin->post('/?r=admin/library/folders/delete', [
+            '_csrf' => $page->csrfToken() ?? '',
+            'id' => (string) $sub['id'],
+        ]);
+        $page = $admin->get('/?r=admin/library/handouts');
+        $admin->post('/?r=admin/library/folders/delete', [
+            '_csrf' => $page->csrfToken() ?? '',
+            'id' => (string) $chapter['id'],
+        ]);
+        $this->assertCount(0, $folders->listByType('handout'), '空文件夹可逐级删除');
+
+        // 导入页按文件夹浏览
+        $select = $admin->get('/?r=admin/library/import&course_id=' . $courseId . '&type=handout');
+        $this->assertSame(200, $select->status);
+        $this->assertStringContainsString('课件A', $select->body);
+    }
+
+    public function testAssignmentTemplatePagesRenderAndCreate(): void
+    {
+        $admin = new HttpClient(self::$baseUrl);
+        $this->loginAdmin($admin);
+
+        $create = $admin->get('/?r=admin/library/assignments/create');
+        $this->assertSame(200, $create->status);
+        $res = $admin->post('/?r=admin/library/assignments/store', [
+            '_csrf' => $create->csrfToken() ?? '',
+            'title' => '实验一：环境搭建',
+            'requirements' => "完成环境搭建\n提交截图",
+            'allowed_extensions' => ['zip', 'pdf'],
+            'max_file_size_mb' => '10',
+            'allow_late' => '1',
+            'folder_id' => '',
+        ]);
+        $this->assertSame(302, $res->status);
+        $list = (new \App\Repositories\LibraryAssignmentRepository())->listAll();
+        $this->assertCount(1, $list);
+        $this->assertSame('实验一：环境搭建', $list[0]['title']);
+
+        $page = $admin->get('/?r=admin/library/assignments');
+        $this->assertSame(200, $page->status);
+        $this->assertStringContainsString('实验一：环境搭建', $page->body);
+
+        $edit = $admin->get('/?r=admin/library/assignments/edit&id=' . $list[0]['id']);
+        $this->assertSame(200, $edit->status);
     }
 }

@@ -59,7 +59,7 @@ final class RegistrationTest extends FeatureTestCase
         $this->register($client, '2024001', '张三', 'student-pass-123');
         $this->login($client, 'student', '2024001', 'student-pass-123');
 
-        $this->assertSame(200, $client->get('/?r=student/course&id=' . $courseId)->status);
+        $this->assertSame(200, $client->get('/?r=student/course/handouts&id=' . $courseId)->status);
     }
 
     public function testDuplicateStudentNoRejected(): void

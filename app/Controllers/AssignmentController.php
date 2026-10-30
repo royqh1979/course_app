@@ -73,7 +73,7 @@ final class AssignmentController extends BaseController
         }
         if ($course['status'] !== 'active') {
             Session::flash('error', '已归档课程不能再发布作业。');
-            redirect('?r=admin/courses/show&id=' . $course['id']);
+            redirect('?r=admin/courses/assignments&id=' . $course['id']);
         }
 
         $data = $this->readForm();
@@ -116,7 +116,7 @@ final class AssignmentController extends BaseController
         $this->logs->addAuditLog('admin', (int) $admin['id'], 'assignment.update', 'assignment', (string) $assignment['id'], $data['title'], $this->ip());
 
         Session::flash('success', '作业已保存，修改（含截止时间）立即生效。');
-        redirect('?r=admin/courses/show&id=' . $assignment['course_id']);
+        redirect('?r=admin/courses/assignments&id=' . $assignment['course_id']);
     }
 
     public function publish(): void
@@ -128,13 +128,13 @@ final class AssignmentController extends BaseController
         $course = $this->courses->findById((int) $assignment['course_id']);
         if ($course === null || $course['status'] !== 'active') {
             Session::flash('error', '已归档课程不能再发布作业。');
-            redirect('?r=admin/courses/show&id=' . $assignment['course_id']);
+            redirect('?r=admin/courses/assignments&id=' . $assignment['course_id']);
         }
         $this->assignments->setStatus((int) $assignment['id'], 'published');
         $this->logs->addAuditLog('admin', (int) $admin['id'], 'assignment.publish', 'assignment', (string) $assignment['id'], $assignment['title'], $this->ip());
 
         Session::flash('success', "作业《{$assignment['title']}》已发布，学生可见并可提交。");
-        redirect('?r=admin/courses/show&id=' . $assignment['course_id']);
+        redirect('?r=admin/courses/assignments&id=' . $assignment['course_id']);
     }
 
     public function close(): void
@@ -147,7 +147,7 @@ final class AssignmentController extends BaseController
         $this->logs->addAuditLog('admin', (int) $admin['id'], 'assignment.close', 'assignment', (string) $assignment['id'], $assignment['title'], $this->ip());
 
         Session::flash('success', "作业《{$assignment['title']}》已关闭，学生不能再提交（可重新发布恢复）。");
-        redirect('?r=admin/courses/show&id=' . $assignment['course_id']);
+        redirect('?r=admin/courses/assignments&id=' . $assignment['course_id']);
     }
 
     /** 提交情况统计页：以当前课程名单为基准（含未注册学生）；小组作业按组聚合 */

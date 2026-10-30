@@ -6,7 +6,7 @@
 |---|---|---|---|
 | unit | `tests/Unit` | 无 | 纯逻辑：密码哈希、CSRF、输入校验、限流判定、名单 Excel 解析与预校验 |
 | integration | `tests/Integration` | `class_app_test` | Repository CRUD 与唯一约束、实时权限 SQL、日志写入、AuthService、名单增量导入与事务回滚、学生筛选/未匹配查询；每用例事务回滚 |
-| feature | `tests/Feature` | `class_app_test` + 内置服务器 | 完整 HTTP 流程：登录/退出/限流、学生注册、权限复检、CSRF、改密会话失效、名单 Excel 上传预校验与确认导入、学生账号管理、注册二维码、响应式导航与资源本地化、讲义上传发布与下载、作业发布与附件、学生提交/重交/补交、教师批改与批改后锁定、列表分页与设备默认条数、备课区模板/导入/存回与共享文件语义、提交统计与 Excel/ZIP 导出、XHR 上传 JSON 分支、日志查看、小组作业全流程（建组/审批/上下限/组长提交/成绩共享） |
+| feature | `tests/Feature` | `class_app_test` + 内置服务器 | 完整 HTTP 流程：登录/退出/限流、学生注册、权限复检、CSRF、改密会话失效、名单 Excel 上传预校验与确认导入、学生账号管理、注册二维码、响应式导航与资源本地化、讲义上传发布与下载、作业发布与附件、学生提交/重交/补交、教师批改与批改后锁定、列表分页与设备默认条数、备课区模板/导入/存回与共享文件语义、备课区文件夹归类（建目录/深度限制/按目录浏览/导入选目录）、课程四页拆分（讲义/作业/名单/分组）与学生三页拆分的页面渲染与跳转、提交统计与 Excel/ZIP 导出、XHR 上传 JSON 分支、日志查看、小组作业全流程（建组/审批/上下限/组长提交/成绩共享） |
 
 ## 与首版验收标准的对照（需求方案第十一节）
 
@@ -28,3 +28,11 @@
 | 14. 课程归档后历史可查、不能继续提交 | `Integration/CoursePermissionTest::testArchivedCourseInvisibleToStudent`、`Feature/SubmissionFlowTest::testSubmitBlockedWhenCourseArchivedOrAssignmentClosed` | ✅ 已覆盖 |
 
 新增功能时同步更新本对照表。
+
+## 方案外增量功能的覆盖（不在首版 14 条验收标准内）
+
+| 功能 | 覆盖测试 |
+|---|---|
+| 备课区文件夹树（按类型两棵树、深度 ≤3、空文件夹才可删、条目移入移出、按目录浏览/导入） | `Integration/FolderFlowTest`、`Feature/LibraryFlowTest::testFolderOrganizeFlow` |
+| 备课区页面拆分（课件/作业两个独立页、历史 500 修复后页面渲染断言） | `Feature/LibraryFlowTest::testFolderOrganizeFlow`、`testAssignmentTemplatePagesRenderAndCreate` |
+| 课程页四拆分（讲义/作业/名单/分组独立分页）与学生课程三拆分 | `Feature/PaginationFlowTest`、`Feature/PermissionTest`、`Feature/GroupFlowTest`（各页 200 断言） |

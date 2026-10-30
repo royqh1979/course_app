@@ -49,7 +49,7 @@ final class HandoutController extends BaseController
                 $this->jsonResponse(false, '讲义标题必填且不超过 200 字。');
             }
             Session::flash('error', '讲义标题必填且不超过 200 字。');
-            redirect('?r=admin/courses/show&id=' . $course['id']);
+            redirect('?r=admin/courses/handouts&id=' . $course['id']);
         }
 
         $description = trim((string) ($_POST['description'] ?? ''));
@@ -72,16 +72,16 @@ final class HandoutController extends BaseController
                 $this->jsonResponse(false, $e->getMessage());
             }
             Session::flash('error', $e->getMessage());
-            redirect('?r=admin/courses/show&id=' . $course['id']);
+            redirect('?r=admin/courses/handouts&id=' . $course['id']);
         }
         $this->logs->addAuditLog('admin', (int) $admin['id'], 'handout.upload', 'handout', (string) $result['id'], "课程 {$course['id']}：{$title}", $this->ip());
 
         $message = "《{$result['original_name']}》上传成功（草稿），发布后学生才可见。";
         if ($this->wantsJson()) {
-            $this->jsonResponse(true, $message, '?r=admin/courses/show&id=' . $course['id']);
+            $this->jsonResponse(true, $message, '?r=admin/courses/handouts&id=' . $course['id']);
         }
         Session::flash('success', $message);
-        redirect('?r=admin/courses/show&id=' . $course['id']);
+        redirect('?r=admin/courses/handouts&id=' . $course['id']);
     }
 
     public function edit(): void
@@ -109,7 +109,7 @@ final class HandoutController extends BaseController
         $this->logs->addAuditLog('admin', (int) $admin['id'], 'handout.update', 'handout', (string) $handout['id'], $title, $this->ip());
 
         Session::flash('success', '讲义已保存。');
-        redirect('?r=admin/courses/show&id=' . $handout['course_id']);
+        redirect('?r=admin/courses/handouts&id=' . $handout['course_id']);
     }
 
     /** 替换讲义文件：先保存新文件并更新数据库，成功后再清理旧文件 */
@@ -149,10 +149,10 @@ final class HandoutController extends BaseController
 
         $message = "讲义文件已替换为《{$originalName}》。";
         if ($this->wantsJson()) {
-            $this->jsonResponse(true, $message, '?r=admin/courses/show&id=' . $handout['course_id']);
+            $this->jsonResponse(true, $message, '?r=admin/courses/handouts&id=' . $handout['course_id']);
         }
         Session::flash('success', $message);
-        redirect('?r=admin/courses/show&id=' . $handout['course_id']);
+        redirect('?r=admin/courses/handouts&id=' . $handout['course_id']);
     }
 
     public function publish(): void
@@ -164,13 +164,13 @@ final class HandoutController extends BaseController
         $course = $this->courses->findById((int) $handout['course_id']);
         if ($course === null || $course['status'] !== 'active') {
             Session::flash('error', '已归档课程不能再发布讲义。');
-            redirect('?r=admin/courses/show&id=' . $handout['course_id']);
+            redirect('?r=admin/courses/handouts&id=' . $handout['course_id']);
         }
         $this->handouts->setStatus((int) $handout['id'], 'published');
         $this->logs->addAuditLog('admin', (int) $admin['id'], 'handout.publish', 'handout', (string) $handout['id'], $handout['title'], $this->ip());
 
         Session::flash('success', "讲义《{$handout['title']}》已发布，学生立即可见。");
-        redirect('?r=admin/courses/show&id=' . $handout['course_id']);
+        redirect('?r=admin/courses/handouts&id=' . $handout['course_id']);
     }
 
     public function offline(): void
@@ -183,7 +183,7 @@ final class HandoutController extends BaseController
         $this->logs->addAuditLog('admin', (int) $admin['id'], 'handout.offline', 'handout', (string) $handout['id'], $handout['title'], $this->ip());
 
         Session::flash('success', "讲义《{$handout['title']}》已下线，学生端不再显示。");
-        redirect('?r=admin/courses/show&id=' . $handout['course_id']);
+        redirect('?r=admin/courses/handouts&id=' . $handout['course_id']);
     }
 
     private function findHandout(): array
@@ -203,7 +203,7 @@ final class HandoutController extends BaseController
         }
         if ($course['status'] !== 'active') {
             Session::flash('error', '已归档课程不能再上传讲义。');
-            redirect('?r=admin/courses/show&id=' . $courseId);
+            redirect('?r=admin/courses/handouts&id=' . $courseId);
         }
         return $course;
     }

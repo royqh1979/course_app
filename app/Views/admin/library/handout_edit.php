@@ -1,7 +1,8 @@
 <?php use App\Services\Csrf; ?>
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h3 m-0">编辑课件模板</h1>
-    <a class="btn btn-outline-secondary" href="?r=admin/library">返回备课区</a>
+    <a class="btn btn-outline-secondary"
+       href="?r=<?= e($typeRoute) ?><?= $handout['folder_id'] !== null ? '&folder_id=' . (int) $handout['folder_id'] : '' ?>">返回备课区</a>
 </div>
 
 <div class="row">
@@ -17,6 +18,18 @@
             <div class="mb-3">
                 <label class="form-label" for="description">说明（可选）</label>
                 <textarea class="form-control" id="description" name="description" rows="3"><?= e($handout['description'] ?? '') ?></textarea>
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="folder_id">所属文件夹</label>
+                <select class="form-select" id="folder_id" name="folder_id">
+                    <option value="">根目录</option>
+                    <?php foreach ($folderOptions as $option): ?>
+                    <option value="<?= (int) $option['id'] ?>"
+                            <?= (int) $handout['folder_id'] === (int) $option['id'] ? 'selected' : '' ?>>
+                        <?= str_repeat('　', $option['depth'] - 1) ?><?= e($option['name']) ?>
+                    </option>
+                    <?php endforeach; ?>
+                </select>
             </div>
             <button type="submit" class="btn btn-primary">保存</button>
         </form>

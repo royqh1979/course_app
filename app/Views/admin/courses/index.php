@@ -21,7 +21,7 @@
     <tbody>
     <?php foreach ($courses as $course): ?>
     <tr>
-        <td><a href="?r=admin/courses/show&id=<?= (int) $course['id'] ?>"><?= e($course['name']) ?></a></td>
+        <td><a href="?r=admin/courses/handouts&id=<?= (int) $course['id'] ?>"><?= e($course['name']) ?></a></td>
         <td><?= e($course['code'] ?? '') ?></td>
         <td><?= e($course['term']) ?></td>
         <td><?= $course['status'] === 'active' ? '进行中' : '已归档' ?></td>

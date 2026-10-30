@@ -18,12 +18,13 @@ final class LibraryHandoutRepository
         return Database::pdo();
     }
 
-    public function create(string $title, ?string $description, int $fileId): int
+    public function create(string $title, ?string $description, int $fileId, ?int $folderId = null): int
     {
         $stmt = $this->db()->prepare(
-            'INSERT INTO library_handouts (title, description, file_id) VALUES (:title, :description, :file_id)'
+            'INSERT INTO library_handouts (folder_id, title, description, file_id) VALUES (:folder_id, :title, :description, :file_id)'
         );
         $stmt->execute([
+            'folder_id' => $folderId,
             'title' => $title,
             'description' => $description === '' ? null : $description,
             'file_id' => $fileId,
@@ -31,12 +32,13 @@ final class LibraryHandoutRepository
         return (int) $this->db()->lastInsertId();
     }
 
-    public function update(int $id, string $title, ?string $description): void
+    public function update(int $id, string $title, ?string $description, ?int $folderId = null): void
     {
         $stmt = $this->db()->prepare(
-            'UPDATE library_handouts SET title = :title, description = :description WHERE id = :id'
+            'UPDATE library_handouts SET folder_id = :folder_id, title = :title, description = :description WHERE id = :id'
         );
         $stmt->execute([
+            'folder_id' => $folderId,
             'title' => $title,
             'description' => $description === '' ? null : $description,
             'id' => $id,
@@ -82,6 +84,33 @@ final class LibraryHandoutRepository
             $sql .= ' LIMIT :limit OFFSET :offset';
         }
         $stmt = $this->db()->prepare($sql);
+        if ($pagination !== null) {
+            $stmt->bindValue('limit', $pagination->limit(), PDO::PARAM_INT);
+            $stmt->bindValue('offset', $pagination->offset(), PDO::PARAM_INT);
+        }
+        $stmt->execute();
+        return $stmt->fetchAll();
+    }
+
+    public function countByFolder(?int $folderId): int
+    {
+        $stmt = $this->db()->prepare('SELECT COUNT(*) FROM library_handouts WHERE folder_id <=> :folder_id');
+        $stmt->execute(['folder_id' => $folderId]);
+        return (int) $stmt->fetchColumn();
+    }
+
+    /** @return array<int, array> */
+    public function listByFolder(?int $folderId, ?Pagination $pagination = null): array
+    {
+        $sql = 'SELECT h.*, f.original_name, f.size
+                FROM library_handouts h INNER JOIN files f ON f.id = h.file_id
+                WHERE h.folder_id <=> :folder_id
+                ORDER BY h.id DESC';
+        if ($pagination !== null) {
+            $sql .= ' LIMIT :limit OFFSET :offset';
+        }
+        $stmt = $this->db()->prepare($sql);
+        $stmt->bindValue('folder_id', $folderId);
         if ($pagination !== null) {
             $stmt->bindValue('limit', $pagination->limit(), PDO::PARAM_INT);
             $stmt->bindValue('offset', $pagination->offset(), PDO::PARAM_INT);

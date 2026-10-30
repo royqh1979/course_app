@@ -99,7 +99,7 @@ final class GroupFlowTest extends FeatureTestCase
         $member = $this->studentClient('2024002');
 
         // 张三建组
-        $this->postForm($leader, '/?r=student/course&id=' . $courseId, '/?r=student/group/create', [
+        $this->postForm($leader, '/?r=student/course/groups&id=' . $courseId, '/?r=student/group/create', [
             'course_id' => (string) $courseId,
             'name' => '火箭队',
         ]);
@@ -109,10 +109,10 @@ final class GroupFlowTest extends FeatureTestCase
         $groupId = (int) $groups[0]['id'];
 
         // 李四申请 → 张三页面出现待审批，同意后李四入组
-        $this->postForm($member, '/?r=student/course&id=' . $courseId, '/?r=student/group/apply', [
+        $this->postForm($member, '/?r=student/course/groups&id=' . $courseId, '/?r=student/group/apply', [
             'group_id' => (string) $groupId,
         ]);
-        $memberPage = $member->get('/?r=student/course&id=' . $courseId);
+        $memberPage = $member->get('/?r=student/course/groups&id=' . $courseId);
         $this->assertStringContainsString('待组长审批', $memberPage->body);
 
         $leaderGroupPage = $leader->get('/?r=student/group&id=' . $groupId);
@@ -122,7 +122,7 @@ final class GroupFlowTest extends FeatureTestCase
         $this->postForm($leader, '/?r=student/group&id=' . $groupId, '/?r=student/group/approve', [
             'member_id' => (string) $pendingId,
         ]);
-        $memberPage = $member->get('/?r=student/course&id=' . $courseId);
+        $memberPage = $member->get('/?r=student/course/groups&id=' . $courseId);
         $this->assertStringContainsString('我的小组', $memberPage->body);
         $this->assertStringContainsString('火箭队', $memberPage->body);
 
@@ -139,13 +139,13 @@ final class GroupFlowTest extends FeatureTestCase
         $leader = $this->studentClient('2024001');
         $member = $this->studentClient('2024002');
 
-        $this->postForm($leader, '/?r=student/course&id=' . $courseId, '/?r=student/group/create', [
+        $this->postForm($leader, '/?r=student/course/groups&id=' . $courseId, '/?r=student/group/create', [
             'course_id' => (string) $courseId,
             'name' => '火箭队',
         ]);
         $groupId = (int) (new GroupRepository())->listByCourse($courseId)[0]['id'];
 
-        $this->postForm($member, '/?r=student/course&id=' . $courseId, '/?r=student/group/apply', [
+        $this->postForm($member, '/?r=student/course/groups&id=' . $courseId, '/?r=student/group/apply', [
             'group_id' => (string) $groupId,
         ]);
         $this->assertNull(
@@ -160,12 +160,12 @@ final class GroupFlowTest extends FeatureTestCase
         $leader = $this->studentClient('2024001');
         $member = $this->studentClient('2024002');
 
-        $this->postForm($leader, '/?r=student/course&id=' . $courseId, '/?r=student/group/create', [
+        $this->postForm($leader, '/?r=student/course/groups&id=' . $courseId, '/?r=student/group/create', [
             'course_id' => (string) $courseId,
             'name' => '火箭队',
         ]);
         $groupId = (int) (new GroupRepository())->listByCourse($courseId)[0]['id'];
-        $this->postForm($member, '/?r=student/course&id=' . $courseId, '/?r=student/group/apply', [
+        $this->postForm($member, '/?r=student/course/groups&id=' . $courseId, '/?r=student/group/apply', [
             'group_id' => (string) $groupId,
         ]);
         $pendingId = (new GroupRepository())->members($groupId, 'pending')[0]['id'];
@@ -203,7 +203,7 @@ final class GroupFlowTest extends FeatureTestCase
     {
         [$courseId, $assignmentId] = $this->prepareCourse(2, null); // 下限 2 人
         $leader = $this->studentClient('2024001');
-        $this->postForm($leader, '/?r=student/course&id=' . $courseId, '/?r=student/group/create', [
+        $this->postForm($leader, '/?r=student/course/groups&id=' . $courseId, '/?r=student/group/create', [
             'course_id' => (string) $courseId,
             'name' => '火箭队',
         ]);
@@ -247,7 +247,7 @@ final class GroupFlowTest extends FeatureTestCase
         $this->login($admin, 'admin', 'teacher', 'admin-pass-123');
 
         // 课程页分组情况
-        $page = $admin->get('/?r=admin/courses/show&id=' . $courseId);
+        $page = $admin->get('/?r=admin/courses/groups&id=' . $courseId);
         $this->assertStringContainsString('火箭队', $page->body);
         $this->assertStringContainsString('2024002 李四', $page->body);
 
@@ -273,7 +273,7 @@ final class GroupFlowTest extends FeatureTestCase
     {
         [$courseId] = $this->prepareCourse();
         $leader = $this->studentClient('2024001');
-        $this->postForm($leader, '/?r=student/course&id=' . $courseId, '/?r=student/group/create', [
+        $this->postForm($leader, '/?r=student/course/groups&id=' . $courseId, '/?r=student/group/create', [
             'course_id' => (string) $courseId,
             'name' => '火箭队',
         ]);

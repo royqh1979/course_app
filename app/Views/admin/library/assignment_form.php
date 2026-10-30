@@ -7,7 +7,8 @@ $selectedExtensions = $assignment !== null
 ?>
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h3 m-0"><?= e($title) ?></h1>
-    <a class="btn btn-outline-secondary" href="?r=admin/library">返回备课区</a>
+    <a class="btn btn-outline-secondary"
+       href="?r=<?= e($typeRoute) ?><?= $currentFolderId !== null ? '&folder_id=' . (int) $currentFolderId : '' ?>">返回备课区</a>
 </div>
 <p class="text-muted">模板不设置开始/截止时间，导入课程后再设置。</p>
 
@@ -54,6 +55,18 @@ $selectedExtensions = $assignment !== null
                         <label class="form-check-label" for="allow_late">允许补交（截止后仍可提交，自动记为迟交）</label>
                     </div>
                 </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="folder_id">所属文件夹</label>
+                <select class="form-select" id="folder_id" name="folder_id">
+                    <option value="">根目录</option>
+                    <?php foreach ($folderOptions as $option): ?>
+                    <option value="<?= (int) $option['id'] ?>"
+                            <?= $currentFolderId === (int) $option['id'] ? 'selected' : '' ?>>
+                        <?= str_repeat('　', $option['depth'] - 1) ?><?= e($option['name']) ?>
+                    </option>
+                    <?php endforeach; ?>
+                </select>
             </div>
             <button type="submit" class="btn btn-primary">保存</button>
         </form>

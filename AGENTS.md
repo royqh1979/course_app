@@ -29,9 +29,11 @@
 
 **文件操作事务化已完成**：`FileStorage::transactional()` 实现"事务 + 补偿"——回调内 DB 写入用 `Database::transaction()` 包裹，`store()` 的新文件登记入册、异常时补偿删除，`delete()` 延后到事务提交后执行。凡伴随 DB 写入的文件操作必须走该方法（讲义/附件/提交/备课区已全部接入）。
 
-**备课区已完成**：课件/作业模板库（`admin/library`，3 张 `library_*` 表）。**导入 = 逻辑快照**：复制业务行、共享同一 `files` 行（`file_id` 引用），模板与课程副本互不影响；模板修改/删除只影响之后的导入；支持课程条目"存入备课区"。**文件删除按引用计数**：`FileRepository::countReferences()` 统算 5 张引用表，归零才删行删盘；学生提交永不共享。
+**备课区已完成**：课件/作业模板库（`admin/library`，3 张 `library_*` 表 + `library_folders`）。**导入 = 逻辑快照**：复制业务行、共享同一 `files` 行（`file_id` 引用），模板与课程副本互不影响；模板修改/删除只影响之后的导入；支持课程条目"存入备课区"（进根目录）。**文件删除按引用计数**：`FileRepository::countReferences()` 统算 5 张引用表，归零才删行删盘；学生提交永不共享。**文件夹树（2026-10 增量）**：课件/作业**两棵按类型独立的树**（`item_type` 区分），深度 ≤3 层；文件夹建/改名/删除（**仅空文件夹**——无子文件夹且无条目）；条目经编辑页移入移出；列表页/导入页左侧树浏览（递归计数徽标 + 面包屑）。历史故障注记：曾因病式分页路径致备课区首页 500，拆页后修复，feature 测试已补全部页面 200 断言防回归。
 
 **第四阶段（统计导出）已完成**：提交统计页（**以当前名单为基准**，含未注册学生；`admin/assignments/stats`）、Excel 导出（同口径、用户内容全部显式文本写入防公式注入）、ZIP 打包（**全部有效提交**，含已移除名单学生的提交；包内文件名"班级_学号_姓名_原文件名"、非法字符清理、重名加序号、500MB 上限 `export.zip_max_size`）。**日志查看**：`admin/logs/auth` / `admin/logs/audit`（筛选+分页）。**上传进度**：`public/assets/js/upload.js`（ES5 渐进增强 XHR 进度条，不支持退回原生表单；上传端点带 `X-Requested-With` 时返回 JSON），两种路径均有含文件名的显式结果提示。**孤立文件检查**：`php scripts/check_orphan_files.php [--delete]`。
+
+**页面拆分（2026-10 增量）**：教师课程详情由"一页四区块"拆为**四个独立页面**（`admin/courses/handouts|assignments|roster|groups`，共用头部 + tabs 子导航，页码统一 `page`；分组页教师只读）；备课区拆为课件/作业两个独立列表页（左侧文件夹树）；学生课程由"一页三区块"拆为**三个独立页面**（`student/course/handouts|assignments|groups`，小组区块整体移至 groups 页，`student/group` 管理页不变）。旧路由 `admin/courses/show`、`admin/library`、`student/course` 保留为跳转到新首页。
 
 **小组作业已完成**：作业级 `is_group` 开关；**小组属于课程**（`course_groups`/`course_group_members`，一课一组），创建者为组长、加组需组长审批；课程级人数上下限（**上限加入时检查、下限提交时检查**，`courses.group_min/max_members`）；**只有组长能提交**（组员页面提示"只有组长能提交小组作业"）；提交记 `submissions.group_id`；**成绩共享**：统计/导出/学生端把组提交的分数映射给全组（未批改分数为空白），批改页按组聚合，ZIP 包内文件名用"组名_组长学号_组长姓名_原文件名"；组长不能退出（只能转让/解散），已有提交的组不能解散；教师课程页只读查看分组情况。
 
@@ -40,7 +42,7 @@
 - 需求唯一权威来源：`课程讲义与作业管理系统需求方案.md`（中文，约 550 行）。任何与该文档冲突的实现决定都应先与用户确认。
 - 已实现代码按方案的原生 PHP 分层组织：`public/index.php` 前端控制器 + `app/`（Controllers / Repositories / Services / Support / Views）。
 - 数据库：`database/schema.sql` 已建好首版全部 11 张表（含后续阶段用的 `files`、`handouts`、`assignments` 等）。本机 MariaDB 11.5（MySQL 兼容），库名 `class_app`（生产）/ `class_app_test`（测试），账号 `class_app` **无建库权限**，脚本只建表不建库。
-- 未实现：上线部署（Nginx + PHP-FPM、HTTPS、备份监控，在云主机进行）。四个阶段功能已全部完成。
+- 已上线部署（2026-10）：本机 Debian 13 + Nginx 1.26 + PHP 8.4-FPM（Apache 已停用保留可回滚），学生入口 `https://www.royqh.net/course_app/`（子目录方式，`/var/www/course_app` 符号链接到 `public/`），Let's Encrypt 证书 certbot 自动续期，每日备份 + 每周孤立文件清理 cron。详见 `部署说明.md` 附录。四个阶段功能已全部完成。
 - 测试与验收标准（方案第十一节）的对照表维护在 `tests/README.md`，新增功能时同步更新。
 
 ## 技术栈（需求方案规定）

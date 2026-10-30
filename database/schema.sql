@@ -144,8 +144,10 @@ CREATE TABLE IF NOT EXISTS submissions (
 
 -- 备课区（模板库）：导入课程 = 复制业务行、共享同一 files 行（file_id 引用）
 -- files 行仅当被 5 张引用表（handouts/assignment_attachments/submissions/library_handouts/library_assignment_attachments）都不再引用时才删除
+-- folder_id 指向 library_folders（按 item_type 分“课件/作业”两棵独立树），NULL = 根目录
 CREATE TABLE IF NOT EXISTS library_handouts (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    folder_id INT UNSIGNED DEFAULT NULL,
     title VARCHAR(200) NOT NULL,
     description TEXT,
     file_id INT UNSIGNED NOT NULL,
@@ -155,6 +157,7 @@ CREATE TABLE IF NOT EXISTS library_handouts (
 
 CREATE TABLE IF NOT EXISTS library_assignments (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    folder_id INT UNSIGNED DEFAULT NULL,
     title VARCHAR(200) NOT NULL,
     requirements TEXT,
     allowed_extensions VARCHAR(255) NOT NULL DEFAULT 'doc,docx,xls,xlsx,ppt,pptx,zip',
@@ -170,6 +173,18 @@ CREATE TABLE IF NOT EXISTS library_assignment_attachments (
     file_id INT UNSIGNED NOT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     KEY idx_library_attachments (library_assignment_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 备课区文件夹：自引用树；item_type 区分课件/作业两棵独立树，depth 上限 3（业务层校验）
+CREATE TABLE IF NOT EXISTS library_folders (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    parent_id INT UNSIGNED DEFAULT NULL,
+    name VARCHAR(100) NOT NULL,
+    item_type VARCHAR(20) NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    KEY idx_folders_parent (parent_id),
+    KEY idx_folders_type (item_type, parent_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS auth_logs (

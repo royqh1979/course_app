@@ -61,19 +61,19 @@ final class RosterController extends BaseController
 
         if (!Validate::isValidStudentNo($studentNo) || !Validate::isValidName($name)) {
             Session::flash('error', '学号或姓名格式不正确。');
-            redirect('?r=admin/courses/show&id=' . $courseId);
+            redirect('?r=admin/courses/roster&id=' . $courseId);
         }
 
         try {
             $this->roster->add($courseId, $studentNo, $name, $className);
         } catch (PDOException) {
             Session::flash('error', "学号 {$studentNo} 已在本课程名单中。");
-            redirect('?r=admin/courses/show&id=' . $courseId);
+            redirect('?r=admin/courses/roster&id=' . $courseId);
         }
         $this->logs->addAuditLog('admin', (int) $admin['id'], 'roster.add', 'course', (string) $courseId, "{$className} {$studentNo} {$name}", $this->ip());
 
         Session::flash('success', '名单已添加，匹配学生即时获得课程权限。');
-        redirect('?r=admin/courses/show&id=' . $courseId);
+        redirect('?r=admin/courses/roster&id=' . $courseId);
     }
 
     public function delete(): void
@@ -90,7 +90,7 @@ final class RosterController extends BaseController
         $this->logs->addAuditLog('admin', (int) $admin['id'], 'roster.delete', 'course', (string) $entry['course_id'], "{$entry['class_name']} {$entry['student_no']} {$entry['name']}", $this->ip());
 
         Session::flash('success', '名单已移除，该学生即时失去课程权限（历史数据保留）。');
-        redirect('?r=admin/courses/show&id=' . $entry['course_id']);
+        redirect('?r=admin/courses/roster&id=' . $entry['course_id']);
     }
 
     /** 下载名单导入标准模板（姓名 / 班级 / 学号，学号列为文本格式） */
@@ -139,7 +139,7 @@ final class RosterController extends BaseController
                 $this->jsonResponse(false, $e->getMessage());
             }
             Session::flash('error', $e->getMessage());
-            redirect('?r=admin/courses/show&id=' . $courseId);
+            redirect('?r=admin/courses/roster&id=' . $courseId);
         }
 
         // 暂存待确认导入，确认时以暂存文件为准重新解析
@@ -201,7 +201,7 @@ final class RosterController extends BaseController
         }
         if (!is_array($pending) || (int) $pending['course_id'] !== $courseId || !is_file($this->absolutePath($pending['path']))) {
             Session::flash('error', '导入会话已失效，请重新上传名单文件。');
-            redirect('?r=admin/courses/show&id=' . $courseId);
+            redirect('?r=admin/courses/roster&id=' . $courseId);
         }
 
         // 以暂存文件为唯一数据源，重新解析并按当前名单重新校验
@@ -230,7 +230,7 @@ final class RosterController extends BaseController
         );
 
         Session::flash('success', "导入完成：新增 {$summary['inserted']} 人，更新 {$summary['updated']} 人；权限即时生效。");
-        redirect('?r=admin/courses/show&id=' . $courseId);
+        redirect('?r=admin/courses/roster&id=' . $courseId);
     }
 
     /**

@@ -1,7 +1,7 @@
 <?php use App\Services\Csrf; ?>
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h3 m-0">编辑讲义</h1>
-    <a class="btn btn-outline-secondary" href="?r=admin/courses/show&id=<?= (int) $handout['course_id'] ?>">返回课程</a>
+    <a class="btn btn-outline-secondary" href="?r=admin/courses/handouts&id=<?= (int) $handout['course_id'] ?>">返回课程</a>
 </div>
 
 <div class="row">

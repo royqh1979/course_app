@@ -46,19 +46,54 @@ final class StudentController extends BaseController
         ]);
     }
 
+    /** 学生课程旧入口：跳转到讲义页（各区块已拆分为独立页面） */
     public function course(): void
     {
         $user = $this->requireUser(AuthService::TYPE_STUDENT);
         $course = $this->requireCourseAccess($user);
+        redirect('?r=student/course/handouts&id=' . $course['id']);
+    }
 
-        View::render('student/course', [
-            'title' => $course['name'],
+    public function handouts(): void
+    {
+        $data = $this->coursePageData('handouts');
+        View::render('student/course_handouts', $data + [
+            'handouts' => $this->handouts->listByCourse((int) $data['course']['id'], true),
+        ]);
+    }
+
+    public function assignments(): void
+    {
+        $data = $this->coursePageData('assignments');
+        View::render('student/course_assignments', $data + [
+            'assignments' => $this->assignments->listByCourse((int) $data['course']['id'], true),
+        ]);
+    }
+
+    /** 课程小组页：我的申请/我的小组、创建小组、浏览并申请加入 */
+    public function groups(): void
+    {
+        $user = $this->requireUser(AuthService::TYPE_STUDENT);
+        $course = $this->requireCourseAccess($user);
+        View::render('student/course_groups', [
+            'title' => $course['name'] . ' · 课程小组',
             'course' => $course,
-            'handouts' => $this->handouts->listByCourse((int) $course['id'], true),
-            'assignments' => $this->assignments->listByCourse((int) $course['id'], true),
+            'tab' => 'groups',
             'groups' => $this->groups->listByCourse((int) $course['id']),
             'myMembership' => $this->groups->membershipInCourse((int) $course['id'], (int) $user['id']),
         ]);
+    }
+
+    /** 课程子页面公共数据（讲义/作业页共用；小组页需用户对象单独取） */
+    private function coursePageData(string $tab): array
+    {
+        $user = $this->requireUser(AuthService::TYPE_STUDENT);
+        $course = $this->requireCourseAccess($user);
+        return [
+            'title' => $course['name'],
+            'course' => $course,
+            'tab' => $tab,
+        ];
     }
 
     public function assignment(): void
