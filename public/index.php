@@ -60,7 +60,7 @@ $studentController = new StudentController($auth, $courses, $handouts, $assignme
 $adminStudentController = new AdminStudentController($auth, $students, $logs);
 $qrCodeController = new QrCodeController($auth);
 $handoutController = new HandoutController($auth, $handouts, $courses, $files, $logs);
-$assignmentController = new AssignmentController($auth, $assignments, $courses, $attachments, $files, $logs);
+$assignmentController = new AssignmentController($auth, $assignments, $courses, $attachments, $files, $logs, $submissions);
 $fileController = new FileController($auth, $handouts, $assignments, $attachments, $submissions, $courses);
 
 $home = static function () use ($auth): void {
@@ -113,6 +113,8 @@ match ([$method, $route]) {
     ['POST', 'admin/assignments/update'] => $assignmentController->update(),
     ['POST', 'admin/assignments/publish'] => $assignmentController->publish(),
     ['POST', 'admin/assignments/close'] => $assignmentController->close(),
+    ['GET', 'admin/assignments/submissions'] => $assignmentController->submissions(),
+    ['POST', 'admin/assignments/grade'] => $assignmentController->grade(),
     ['POST', 'admin/assignments/attachments/add'] => $assignmentController->addAttachment(),
     ['POST', 'admin/assignments/attachments/delete'] => $assignmentController->deleteAttachment(),
     ['GET', 'handout/download'] => $fileController->handout(),

@@ -60,12 +60,51 @@ final class SubmissionRepository
         return (int) $this->db()->lastInsertId();
     }
 
-    /** 重新提交：替换文件、刷新最近提交时间，保留首次提交时间 */
+    /** 重新提交：替换文件、刷新最近提交时间，保留首次提交时间。已批改的提交不得调用（由控制器校验） */
     public function replace(int $id, int $fileId): void
     {
         $stmt = $this->db()->prepare(
             'UPDATE submissions SET file_id = :file_id, last_submitted_at = NOW() WHERE id = :id'
         );
         $stmt->execute(['file_id' => $fileId, 'id' => $id]);
+    }
+
+    /**
+     * 教师批改：写入分数/评语并刷新批改时间。
+     * 批改结果教师可随时修改（ graded_at 更新为最近一次批改时间）；
+     * 锁定只针对学生——已批改的提交学生不能再重交（由控制器校验）。
+     */
+    public function grade(int $id, ?int $score, ?string $comment): void
+    {
+        $stmt = $this->db()->prepare(
+            'UPDATE submissions SET score = :score, comment = :comment, graded_at = NOW()
+             WHERE id = :id'
+        );
+        $stmt->execute([
+            'score' => $score,
+            'comment' => $comment === '' ? null : $comment,
+            'id' => $id,
+        ]);
+    }
+
+    /**
+     * 教师端：某作业的全部提交（含学生信息、文件元数据、实时迟交计算）。
+     *
+     * @return array<int, array>
+     */
+    public function listByAssignment(int $assignmentId): array
+    {
+        $stmt = $this->db()->prepare(
+            'SELECT s.*, st.student_no, st.name AS student_name, f.original_name, f.size, a.deadline_at,
+                    ' . self::LATE_EXPR . ' AS is_late
+             FROM submissions s
+             INNER JOIN students st ON st.id = s.student_id
+             INNER JOIN files f ON f.id = s.file_id
+             INNER JOIN assignments a ON a.id = s.assignment_id
+             WHERE s.assignment_id = :assignment_id
+             ORDER BY st.student_no'
+        );
+        $stmt->execute(['assignment_id' => $assignmentId]);
+        return $stmt->fetchAll();
     }
 }

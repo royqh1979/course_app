@@ -52,6 +52,19 @@ $canSubmit = $submitBlock === null;
     <p class="text-muted small mb-0">
         首次提交：<?= e($submission['first_submitted_at']) ?>　最近提交：<?= e($submission['last_submitted_at']) ?>
     </p>
+    <?php if ($submission['graded_at'] !== null): ?>
+    <hr>
+    <p class="mb-1">
+        <strong>教师批改</strong>
+        <?php if ($submission['score'] !== null): ?>
+            <span class="badge bg-primary fs-6"><?= (int) $submission['score'] ?> 分</span>
+        <?php endif; ?>
+        <span class="text-muted small">（<?= e($submission['graded_at']) ?>）</span>
+    </p>
+    <?php if ($submission['comment'] !== null && $submission['comment'] !== ''): ?>
+        <p class="mb-0"><?= nl2br(e($submission['comment'])) ?></p>
+    <?php endif; ?>
+    <?php endif; ?>
 </div>
 <?php else: ?>
 <p class="text-muted">尚未提交。</p>

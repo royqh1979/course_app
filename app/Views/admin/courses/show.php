@@ -102,6 +102,7 @@ $assignmentStatus = ['draft' => ['草稿', 'secondary'], 'published' => ['已发
         <td><span class="badge bg-<?= e($statusColor) ?>"><?= e($statusText) ?></span></td>
         <td class="d-flex gap-1 flex-wrap">
             <a class="btn btn-sm btn-outline-secondary" href="?r=admin/assignments/edit&id=<?= (int) $assignment['id'] ?>">编辑</a>
+            <a class="btn btn-sm btn-outline-primary" href="?r=admin/assignments/submissions&id=<?= (int) $assignment['id'] ?>">提交/批改</a>
             <?php if ($assignment['status'] !== 'published' && $course['status'] === 'active'): ?>
             <form method="post" action="?r=admin/assignments/publish">
                 <?= Csrf::field() ?>

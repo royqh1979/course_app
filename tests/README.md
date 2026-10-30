@@ -6,7 +6,7 @@
 |---|---|---|---|
 | unit | `tests/Unit` | 无 | 纯逻辑：密码哈希、CSRF、输入校验、限流判定、名单 Excel 解析与预校验 |
 | integration | `tests/Integration` | `class_app_test` | Repository CRUD 与唯一约束、实时权限 SQL、日志写入、AuthService、名单增量导入与事务回滚、学生筛选/未匹配查询；每用例事务回滚 |
-| feature | `tests/Feature` | `class_app_test` + 内置服务器 | 完整 HTTP 流程：登录/退出/限流、学生注册、权限复检、CSRF、改密会话失效、名单 Excel 上传预校验与确认导入、学生账号管理、注册二维码、响应式导航与资源本地化、讲义上传发布与下载、作业发布与附件、学生提交/重交/补交 |
+| feature | `tests/Feature` | `class_app_test` + 内置服务器 | 完整 HTTP 流程：登录/退出/限流、学生注册、权限复检、CSRF、改密会话失效、名单 Excel 上传预校验与确认导入、学生账号管理、注册二维码、响应式导航与资源本地化、讲义上传发布与下载、作业发布与附件、学生提交/重交/补交、教师批改与批改后锁定 |
 
 ## 与首版验收标准的对照（需求方案第十一节）
 

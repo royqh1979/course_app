@@ -9,6 +9,7 @@ use App\Repositories\AttachmentRepository;
 use App\Repositories\CourseRepository;
 use App\Repositories\FileRepository;
 use App\Repositories\LogRepository;
+use App\Repositories\SubmissionRepository;
 use App\Services\AuthService;
 use App\Services\FileStorage;
 use App\Support\App;
@@ -34,6 +35,7 @@ final class AssignmentController extends BaseController
         private readonly AttachmentRepository $attachments,
         private readonly FileRepository $files,
         private readonly LogRepository $logs,
+        private readonly SubmissionRepository $submissions,
         ?FileStorage $storage = null,
     ) {
         parent::__construct($auth);
@@ -143,6 +145,70 @@ final class AssignmentController extends BaseController
 
         Session::flash('success', "作业《{$assignment['title']}》已关闭，学生不能再提交（可重新发布恢复）。");
         redirect('?r=admin/courses/show&id=' . $assignment['course_id']);
+    }
+
+    /** 提交列表与批改页 */
+    public function submissions(): void
+    {
+        $this->requireUser(AuthService::TYPE_ADMIN);
+        $assignment = $this->findAssignment();
+        $course = $this->courses->findById((int) $assignment['course_id']);
+        View::render('admin/assignments/submissions', [
+            'title' => '提交批改 — ' . $assignment['title'],
+            'course' => $course,
+            'assignment' => $assignment,
+            'submissions' => $this->submissions->listByAssignment((int) $assignment['id']),
+        ]);
+    }
+
+    /**
+     * 批改提交：分数（0–100，可选）与评语（可选）至少填一项。
+     * 教师可随时修改批改结果；批改后学生不能再重交（锁定只针对学生）。
+     */
+    public function grade(): void
+    {
+        $admin = $this->requireUser(AuthService::TYPE_ADMIN);
+        $this->requireCsrf();
+
+        $submission = $this->submissions->findById((int) ($_POST['id'] ?? 0));
+        if ($submission === null) {
+            $this->notFound('提交记录不存在。');
+        }
+        $assignmentId = (int) $submission['assignment_id'];
+
+        $scoreRaw = trim((string) ($_POST['score'] ?? ''));
+        $comment = trim((string) ($_POST['comment'] ?? ''));
+        $score = null;
+        if ($scoreRaw !== '') {
+            if (!ctype_digit($scoreRaw) || (int) $scoreRaw > 100) {
+                Session::flash('error', '分数须为 0–100 的整数。');
+                redirect('?r=admin/assignments/submissions&id=' . $assignmentId);
+            }
+            $score = (int) $scoreRaw;
+        }
+        if ($score === null && $comment === '') {
+            Session::flash('error', '分数与评语至少填写一项。');
+            redirect('?r=admin/assignments/submissions&id=' . $assignmentId);
+        }
+        if (mb_strlen($comment) > 500) {
+            Session::flash('error', '评语不超过 500 字。');
+            redirect('?r=admin/assignments/submissions&id=' . $assignmentId);
+        }
+
+        $regraded = $submission['graded_at'] !== null;
+        $this->submissions->grade((int) $submission['id'], $score, $comment === '' ? null : $comment);
+        $this->logs->addAuditLog(
+            'admin',
+            (int) $admin['id'],
+            $regraded ? 'submission.regrade' : 'submission.grade',
+            'assignment',
+            (string) $assignmentId,
+            "提交 {$submission['id']}：" . ($score !== null ? "{$score} 分" : '仅评语'),
+            $this->ip()
+        );
+
+        Session::flash('success', $regraded ? '批改结果已更新。' : '批改完成，学生不能再修改该提交。');
+        redirect('?r=admin/assignments/submissions&id=' . $assignmentId);
     }
 
     public function addAttachment(): void

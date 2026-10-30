@@ -183,4 +183,60 @@ final class TeachingFlowTest extends DatabaseTestCase
         $sub = $submissions->findByAssignmentAndStudent($assignmentId, $studentId);
         $this->assertSame(1, (int) $sub['is_late'], '截止后提交（补交）应计算为迟交');
     }
+
+    public function testGradeAndRegrade(): void
+    {
+        $courses = new CourseRepository();
+        $assignments = new AssignmentRepository();
+        $submissions = new SubmissionRepository();
+        $students = new StudentRepository();
+        $files = new FileRepository();
+
+        $courseId = $courses->create('数据结构', null, '', null);
+        $studentId = $students->create('2024001', '张三', PasswordService::hash('password-123'));
+        $assignmentId = $assignments->create($courseId, $this->makeAssignmentData());
+        $subId = $submissions->insert($assignmentId, $studentId, $this->makeFile($files));
+
+        $sub = $submissions->findByAssignmentAndStudent($assignmentId, $studentId);
+        $this->assertNull($sub['graded_at'], '未批改时 graded_at 为空');
+        $this->assertNull($sub['score']);
+
+        // 批改
+        $submissions->grade($subId, 85, '完成得不错');
+        $sub = $submissions->findByAssignmentAndStudent($assignmentId, $studentId);
+        $this->assertSame(85, (int) $sub['score']);
+        $this->assertSame('完成得不错', $sub['comment']);
+        $this->assertNotNull($sub['graded_at']);
+
+        // 教师可修改批改结果
+        $submissions->grade($subId, 90, '复核后加分');
+        $sub = $submissions->findByAssignmentAndStudent($assignmentId, $studentId);
+        $this->assertSame(90, (int) $sub['score']);
+        $this->assertSame('复核后加分', $sub['comment']);
+    }
+
+    public function testListByAssignmentForGrading(): void
+    {
+        $courses = new CourseRepository();
+        $assignments = new AssignmentRepository();
+        $submissions = new SubmissionRepository();
+        $students = new StudentRepository();
+        $files = new FileRepository();
+
+        $courseId = $courses->create('数据结构', null, '', null);
+        $s1 = $students->create('2024001', '张三', PasswordService::hash('password-123'));
+        $s2 = $students->create('2024002', '李四', PasswordService::hash('password-123'));
+        $assignmentId = $assignments->create($courseId, $this->makeAssignmentData([
+            'deadline_at' => date('Y-m-d H:i:s', time() - 60),
+        ]));
+        $submissions->insert($assignmentId, $s1, $this->makeFile($files, '张三.zip'));
+        $submissions->insert($assignmentId, $s2, $this->makeFile($files, '李四.zip'));
+
+        $list = $submissions->listByAssignment($assignmentId);
+        $this->assertCount(2, $list);
+        $this->assertSame('2024001', $list[0]['student_no'], '按学号排序');
+        $this->assertSame('张三', $list[0]['student_name']);
+        $this->assertSame('张三.zip', $list[0]['original_name']);
+        $this->assertSame(1, (int) $list[0]['is_late'], '迟交实时计算一并返回');
+    }
 }

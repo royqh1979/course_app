@@ -101,11 +101,15 @@ CREATE TABLE IF NOT EXISTS assignment_attachments (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 迟交不存标志，统一按 (assignments.deadline_at 非空 且 last_submitted_at > deadline_at) 实时计算
+-- 批改（graded_at 非空）后该提交锁定：学生不能再重交；教师可随时修改批改结果（graded_at 随之刷新）
 CREATE TABLE IF NOT EXISTS submissions (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     assignment_id INT UNSIGNED NOT NULL,
     student_id INT UNSIGNED NOT NULL,
     file_id INT UNSIGNED NOT NULL,
+    score INT UNSIGNED DEFAULT NULL,
+    comment TEXT,
+    graded_at DATETIME DEFAULT NULL,
     first_submitted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     last_submitted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uq_submissions_assignment_student (assignment_id, student_id)

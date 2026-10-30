@@ -68,13 +68,14 @@ final class StudentController extends BaseController
             $this->forbidden('您没有访问该课程的权限。');
         }
 
+        $submission = $this->submissions->findByAssignmentAndStudent((int) $assignment['id'], (int) $user['id']);
         View::render('student/assignment', [
             'title' => $assignment['title'],
             'course' => $course,
             'assignment' => $assignment,
             'attachments' => $this->attachments->listByAssignment((int) $assignment['id']),
-            'submission' => $this->submissions->findByAssignmentAndStudent((int) $assignment['id'], (int) $user['id']),
-            'submitBlock' => $this->submitBlockReason($course, $assignment),
+            'submission' => $submission,
+            'submitBlock' => $this->submitBlockReason($course, $assignment, $submission),
         ]);
     }
 
@@ -97,7 +98,8 @@ final class StudentController extends BaseController
             $this->forbidden('您没有访问该课程的权限。');
         }
 
-        $block = $this->submitBlockReason($course, $assignment);
+        $existing = $this->submissions->findByAssignmentAndStudent((int) $assignment['id'], (int) $user['id']);
+        $block = $this->submitBlockReason($course, $assignment, $existing);
         if ($block !== null) {
             Session::flash('error', $block);
             redirect('?r=student/assignment&id=' . $assignment['id']);
@@ -117,7 +119,6 @@ final class StudentController extends BaseController
         }
 
         $fileId = $this->files->create($meta);
-        $existing = $this->submissions->findByAssignmentAndStudent((int) $assignment['id'], (int) $user['id']);
         if ($existing === null) {
             $this->submissions->insert((int) $assignment['id'], (int) $user['id'], $fileId);
             Session::flash('success', '提交成功。');
@@ -132,9 +133,12 @@ final class StudentController extends BaseController
         redirect('?r=student/assignment&id=' . $assignment['id']);
     }
 
-    /** 不可提交的原因；可提交返回 null */
-    private function submitBlockReason(array $course, array $assignment): ?string
+    /** 不可提交的原因；可提交返回 null。已批改的提交学生不能再修改 */
+    private function submitBlockReason(array $course, array $assignment, ?array $submission): ?string
     {
+        if ($submission !== null && $submission['graded_at'] !== null) {
+            return '教师已批改该作业，不能再修改提交。';
+        }
         if ($course['status'] !== 'active') {
             return '课程已归档，不能继续提交作业。';
         }
