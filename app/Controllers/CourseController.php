@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Repositories\AssignmentRepository;
 use App\Repositories\CourseRepository;
+use App\Repositories\HandoutRepository;
 use App\Repositories\LogRepository;
 use App\Repositories\RosterRepository;
 use App\Services\AuthService;
@@ -18,6 +20,8 @@ final class CourseController extends BaseController
         private readonly CourseRepository $courses,
         private readonly RosterRepository $roster,
         private readonly LogRepository $logs,
+        private readonly HandoutRepository $handouts,
+        private readonly AssignmentRepository $assignments,
     ) {
         parent::__construct($auth);
     }
@@ -134,6 +138,8 @@ final class CourseController extends BaseController
             'title' => $course['name'],
             'course' => $course,
             'roster' => $this->roster->listByCourse($id),
+            'handouts' => $this->handouts->listByCourse($id),
+            'assignments' => $this->assignments->listByCourse($id),
         ]);
     }
 }

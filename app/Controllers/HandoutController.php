@@ -1,0 +1,187 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Controllers;
+
+use App\Repositories\CourseRepository;
+use App\Repositories\FileRepository;
+use App\Repositories\HandoutRepository;
+use App\Repositories\LogRepository;
+use App\Services\AuthService;
+use App\Services\FileStorage;
+use App\Support\App;
+use App\Support\Session;
+use App\Support\View;
+use RuntimeException;
+
+/**
+ * 教师端讲义管理：上传（草稿）、修改标题说明、替换文件、发布/下线。
+ */
+final class HandoutController extends BaseController
+{
+    private const ALLOWED_EXTENSIONS = ['doc', 'docx', 'ppt', 'pptx', 'pdf'];
+
+    private readonly FileStorage $storage;
+
+    public function __construct(
+        AuthService $auth,
+        private readonly HandoutRepository $handouts,
+        private readonly CourseRepository $courses,
+        private readonly FileRepository $files,
+        private readonly LogRepository $logs,
+        ?FileStorage $storage = null,
+    ) {
+        parent::__construct($auth);
+        $this->storage = $storage ?? FileStorage::fromConfig();
+    }
+
+    public function store(): void
+    {
+        $admin = $this->requireUser(AuthService::TYPE_ADMIN);
+        $this->requireCsrf();
+
+        $course = $this->requireActiveCourse((int) ($_POST['course_id'] ?? 0));
+        $title = trim((string) ($_POST['title'] ?? ''));
+        if ($title === '' || mb_strlen($title) > 200) {
+            Session::flash('error', '讲义标题必填且不超过 200 字。');
+            redirect('?r=admin/courses/show&id=' . $course['id']);
+        }
+
+        try {
+            $meta = $this->storage->store(
+                $_FILES['file'] ?? [],
+                'courses/' . $course['id'] . '/handouts',
+                self::ALLOWED_EXTENSIONS,
+                $this->teacherMaxSize()
+            );
+        } catch (RuntimeException $e) {
+            Session::flash('error', $e->getMessage());
+            redirect('?r=admin/courses/show&id=' . $course['id']);
+        }
+
+        $fileId = $this->files->create($meta);
+        $id = $this->handouts->create((int) $course['id'], $title, trim((string) ($_POST['description'] ?? '')), $fileId);
+        $this->logs->addAuditLog('admin', (int) $admin['id'], 'handout.upload', 'handout', (string) $id, "课程 {$course['id']}：{$title}", $this->ip());
+
+        Session::flash('success', '讲义已上传（草稿），发布后学生才可见。');
+        redirect('?r=admin/courses/show&id=' . $course['id']);
+    }
+
+    public function edit(): void
+    {
+        $this->requireUser(AuthService::TYPE_ADMIN);
+        $handout = $this->findHandout();
+        View::render('admin/handouts/edit', [
+            'title' => '编辑讲义',
+            'handout' => $handout,
+        ]);
+    }
+
+    public function update(): void
+    {
+        $admin = $this->requireUser(AuthService::TYPE_ADMIN);
+        $this->requireCsrf();
+
+        $handout = $this->findHandout();
+        $title = trim((string) ($_POST['title'] ?? ''));
+        if ($title === '' || mb_strlen($title) > 200) {
+            Session::flash('error', '讲义标题必填且不超过 200 字。');
+            redirect('?r=admin/handouts/edit&id=' . $handout['id']);
+        }
+        $this->handouts->update((int) $handout['id'], $title, trim((string) ($_POST['description'] ?? '')));
+        $this->logs->addAuditLog('admin', (int) $admin['id'], 'handout.update', 'handout', (string) $handout['id'], $title, $this->ip());
+
+        Session::flash('success', '讲义已保存。');
+        redirect('?r=admin/courses/show&id=' . $handout['course_id']);
+    }
+
+    /** 替换讲义文件：先保存新文件并更新数据库，成功后再清理旧文件 */
+    public function replace(): void
+    {
+        $admin = $this->requireUser(AuthService::TYPE_ADMIN);
+        $this->requireCsrf();
+
+        $handout = $this->findHandout();
+        try {
+            $meta = $this->storage->store(
+                $_FILES['file'] ?? [],
+                'courses/' . $handout['course_id'] . '/handouts',
+                self::ALLOWED_EXTENSIONS,
+                $this->teacherMaxSize()
+            );
+        } catch (RuntimeException $e) {
+            Session::flash('error', $e->getMessage());
+            redirect('?r=admin/handouts/edit&id=' . $handout['id']);
+        }
+
+        $newFileId = $this->files->create($meta);
+        $this->handouts->replaceFile((int) $handout['id'], $newFileId);
+
+        // 数据库已指向新文件，再清理旧文件与记录
+        $this->storage->delete((string) $handout['stored_path']);
+        $this->files->delete((int) $handout['file_id']);
+        $this->logs->addAuditLog('admin', (int) $admin['id'], 'handout.replace_file', 'handout', (string) $handout['id'], $meta['original_name'], $this->ip());
+
+        Session::flash('success', '讲义文件已替换。');
+        redirect('?r=admin/courses/show&id=' . $handout['course_id']);
+    }
+
+    public function publish(): void
+    {
+        $admin = $this->requireUser(AuthService::TYPE_ADMIN);
+        $this->requireCsrf();
+
+        $handout = $this->findHandout();
+        $course = $this->courses->findById((int) $handout['course_id']);
+        if ($course === null || $course['status'] !== 'active') {
+            Session::flash('error', '已归档课程不能再发布讲义。');
+            redirect('?r=admin/courses/show&id=' . $handout['course_id']);
+        }
+        $this->handouts->setStatus((int) $handout['id'], 'published');
+        $this->logs->addAuditLog('admin', (int) $admin['id'], 'handout.publish', 'handout', (string) $handout['id'], $handout['title'], $this->ip());
+
+        Session::flash('success', "讲义《{$handout['title']}》已发布，学生立即可见。");
+        redirect('?r=admin/courses/show&id=' . $handout['course_id']);
+    }
+
+    public function offline(): void
+    {
+        $admin = $this->requireUser(AuthService::TYPE_ADMIN);
+        $this->requireCsrf();
+
+        $handout = $this->findHandout();
+        $this->handouts->setStatus((int) $handout['id'], 'offline');
+        $this->logs->addAuditLog('admin', (int) $admin['id'], 'handout.offline', 'handout', (string) $handout['id'], $handout['title'], $this->ip());
+
+        Session::flash('success', "讲义《{$handout['title']}》已下线，学生端不再显示。");
+        redirect('?r=admin/courses/show&id=' . $handout['course_id']);
+    }
+
+    private function findHandout(): array
+    {
+        $handout = $this->handouts->findById((int) (($_POST['id'] ?? $_GET['id']) ?? 0));
+        if ($handout === null) {
+            $this->notFound('讲义不存在。');
+        }
+        return $handout;
+    }
+
+    private function requireActiveCourse(int $courseId): array
+    {
+        $course = $this->courses->findById($courseId);
+        if ($course === null) {
+            $this->notFound('课程不存在。');
+        }
+        if ($course['status'] !== 'active') {
+            Session::flash('error', '已归档课程不能再上传讲义。');
+            redirect('?r=admin/courses/show&id=' . $courseId);
+        }
+        return $course;
+    }
+
+    private function teacherMaxSize(): int
+    {
+        return (int) App::config('upload.teacher_max_size', 50 * 1024 * 1024);
+    }
+}

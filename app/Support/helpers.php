@@ -15,3 +15,15 @@ function redirect(string $url): void
     header('Location: ' . $url);
     exit;
 }
+
+/** 文件大小人性化显示 */
+function format_size(int $bytes): string
+{
+    if ($bytes >= 1048576) {
+        return round($bytes / 1048576, 1) . ' MB';
+    }
+    if ($bytes >= 1024) {
+        return round($bytes / 1024, 1) . ' KB';
+    }
+    return $bytes . ' B';
+}

@@ -85,7 +85,7 @@ CREATE TABLE IF NOT EXISTS assignments (
     deadline_at DATETIME DEFAULT NULL,
     allowed_extensions VARCHAR(255) NOT NULL DEFAULT 'doc,docx,xls,xlsx,ppt,pptx,zip',
     max_file_size INT UNSIGNED NOT NULL DEFAULT 20971520,
-    allow_late TINYINT(1) NOT NULL DEFAULT 0,
+    allow_late TINYINT(1) NOT NULL DEFAULT 1,
     status VARCHAR(20) NOT NULL DEFAULT 'draft',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -100,12 +100,12 @@ CREATE TABLE IF NOT EXISTS assignment_attachments (
     KEY idx_attachments_assignment (assignment_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 迟交不存标志，统一按 (assignments.deadline_at 非空 且 last_submitted_at > deadline_at) 实时计算
 CREATE TABLE IF NOT EXISTS submissions (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     assignment_id INT UNSIGNED NOT NULL,
     student_id INT UNSIGNED NOT NULL,
     file_id INT UNSIGNED NOT NULL,
-    is_late TINYINT(1) NOT NULL DEFAULT 0,
     first_submitted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     last_submitted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uq_submissions_assignment_student (assignment_id, student_id)
