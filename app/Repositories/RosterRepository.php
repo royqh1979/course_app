@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Repositories;
 
 use App\Support\Database;
+use App\Support\Pagination;
 use PDO;
 
 final class RosterRepository
@@ -42,13 +43,27 @@ final class RosterRepository
         return $stmt->fetch() ?: null;
     }
 
-    /** @return array<int, array> */
-    public function listByCourse(int $courseId): array
+    public function countByCourse(int $courseId): int
     {
-        $stmt = $this->db()->prepare(
-            'SELECT * FROM course_roster WHERE course_id = :course_id ORDER BY student_no'
-        );
+        $stmt = $this->db()->prepare('SELECT COUNT(*) FROM course_roster WHERE course_id = :course_id');
         $stmt->execute(['course_id' => $courseId]);
+        return (int) $stmt->fetchColumn();
+    }
+
+    /** @return array<int, array> */
+    public function listByCourse(int $courseId, ?Pagination $pagination = null): array
+    {
+        $sql = 'SELECT * FROM course_roster WHERE course_id = :course_id ORDER BY student_no';
+        if ($pagination !== null) {
+            $sql .= ' LIMIT :limit OFFSET :offset';
+        }
+        $stmt = $this->db()->prepare($sql);
+        $stmt->bindValue('course_id', $courseId);
+        if ($pagination !== null) {
+            $stmt->bindValue('limit', $pagination->limit(), PDO::PARAM_INT);
+            $stmt->bindValue('offset', $pagination->offset(), PDO::PARAM_INT);
+        }
+        $stmt->execute();
         return $stmt->fetchAll();
     }
 

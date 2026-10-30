@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Repositories;
 
 use App\Support\Database;
+use App\Support\Pagination;
 use PDO;
 
 final class AssignmentRepository
@@ -72,21 +73,40 @@ final class AssignmentRepository
         return $stmt->fetch() ?: null;
     }
 
+    public function countByCourse(int $courseId, bool $visibleToStudent = false): int
+    {
+        $sql = 'SELECT COUNT(*) FROM assignments WHERE course_id = :course_id';
+        if ($visibleToStudent) {
+            $sql .= " AND status IN ('published', 'closed')";
+        }
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute(['course_id' => $courseId]);
+        return (int) $stmt->fetchColumn();
+    }
+
     /**
      * 课程作业列表。
      * $visibleToStudent=true 供学生端：已发布与已关闭（学生可回顾），不含草稿。
      *
      * @return array<int, array>
      */
-    public function listByCourse(int $courseId, bool $visibleToStudent = false): array
+    public function listByCourse(int $courseId, bool $visibleToStudent = false, ?Pagination $pagination = null): array
     {
         $sql = 'SELECT * FROM assignments WHERE course_id = :course_id';
         if ($visibleToStudent) {
             $sql .= " AND status IN ('published', 'closed')";
         }
         $sql .= ' ORDER BY id DESC';
+        if ($pagination !== null) {
+            $sql .= ' LIMIT :limit OFFSET :offset';
+        }
         $stmt = $this->db()->prepare($sql);
-        $stmt->execute(['course_id' => $courseId]);
+        $stmt->bindValue('course_id', $courseId);
+        if ($pagination !== null) {
+            $stmt->bindValue('limit', $pagination->limit(), PDO::PARAM_INT);
+            $stmt->bindValue('offset', $pagination->offset(), PDO::PARAM_INT);
+        }
+        $stmt->execute();
         return $stmt->fetchAll();
     }
 }

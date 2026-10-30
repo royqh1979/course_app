@@ -13,6 +13,9 @@ final class HttpClient
     /** @var array<string, string> */
     public array $cookies = [];
 
+    /** 自定义 User-Agent（用于设备相关测试，如手机端每页条数默认值） */
+    public ?string $userAgent = null;
+
     public function __construct(private readonly string $baseUrl)
     {
     }
@@ -49,6 +52,9 @@ final class HttpClient
     public function request(string $method, string $path, ?array $data = null, ?string $rawContent = null, ?string $contentType = null): HttpResponse
     {
         $headers = [];
+        if ($this->userAgent !== null) {
+            $headers[] = 'User-Agent: ' . $this->userAgent;
+        }
         if ($this->cookies !== []) {
             $pairs = [];
             foreach ($this->cookies as $name => $value) {

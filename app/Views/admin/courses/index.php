@@ -43,3 +43,9 @@
     </tbody>
 </table>
 </div>
+<?php
+$route = 'admin/courses';
+$params = [];
+$pageParam = 'page';
+require __DIR__ . '/../../_pagination.php';
+?>

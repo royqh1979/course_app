@@ -10,6 +10,7 @@ use App\Repositories\HandoutRepository;
 use App\Repositories\LogRepository;
 use App\Repositories\RosterRepository;
 use App\Services\AuthService;
+use App\Support\Pagination;
 use App\Support\Session;
 use App\Support\View;
 
@@ -29,9 +30,11 @@ final class CourseController extends BaseController
     public function index(): void
     {
         $this->requireUser(AuthService::TYPE_ADMIN);
+        $pagination = Pagination::fromRequest('page', $this->courses->countAll());
         View::render('admin/courses/index', [
             'title' => '课程管理',
-            'courses' => $this->courses->listAll(),
+            'courses' => $this->courses->listAll($pagination),
+            'pagination' => $pagination,
         ]);
     }
 
@@ -134,12 +137,19 @@ final class CourseController extends BaseController
         if ($course === null) {
             $this->notFound('课程不存在。');
         }
+        // 一页三表：讲义/作业/名单各自独立页码参数（hp/ap/rp）
+        $handoutPagination = Pagination::fromRequest('hp', $this->handouts->countByCourse($id));
+        $assignmentPagination = Pagination::fromRequest('ap', $this->assignments->countByCourse($id));
+        $rosterPagination = Pagination::fromRequest('rp', $this->roster->countByCourse($id));
         View::render('admin/courses/show', [
             'title' => $course['name'],
             'course' => $course,
-            'roster' => $this->roster->listByCourse($id),
-            'handouts' => $this->handouts->listByCourse($id),
-            'assignments' => $this->assignments->listByCourse($id),
+            'roster' => $this->roster->listByCourse($id, $rosterPagination),
+            'handouts' => $this->handouts->listByCourse($id, false, $handoutPagination),
+            'assignments' => $this->assignments->listByCourse($id, false, $assignmentPagination),
+            'handoutPagination' => $handoutPagination,
+            'assignmentPagination' => $assignmentPagination,
+            'rosterPagination' => $rosterPagination,
         ]);
     }
 }

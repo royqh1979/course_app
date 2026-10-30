@@ -8,6 +8,7 @@ use App\Repositories\LogRepository;
 use App\Repositories\StudentRepository;
 use App\Services\AuthService;
 use App\Services\PasswordService;
+use App\Support\Pagination;
 use App\Support\Session;
 use App\Support\View;
 
@@ -35,12 +36,14 @@ final class AdminStudentController extends BaseController
         }
         $unmatchedOnly = ($_GET['unmatched'] ?? '') === '1';
 
+        $pagination = Pagination::fromRequest('page', $this->students->countWithFilters($keyword, $status, $unmatchedOnly));
         View::render('admin/students/index', [
             'title' => '学生账号管理',
-            'students' => $this->students->listWithFilters($keyword, $status, $unmatchedOnly),
+            'students' => $this->students->listWithFilters($keyword, $status, $unmatchedOnly, $pagination),
             'keyword' => $keyword,
             'status' => $status,
             'unmatchedOnly' => $unmatchedOnly,
+            'pagination' => $pagination,
         ]);
     }
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Repositories;
 
 use App\Support\Database;
+use App\Support\Pagination;
 use PDO;
 
 final class HandoutRepository
@@ -69,13 +70,24 @@ final class HandoutRepository
         return $stmt->fetch() ?: null;
     }
 
+    public function countByCourse(int $courseId, bool $publishedOnly = false): int
+    {
+        $sql = 'SELECT COUNT(*) FROM handouts h WHERE h.course_id = :course_id';
+        if ($publishedOnly) {
+            $sql .= " AND h.status = 'published'";
+        }
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute(['course_id' => $courseId]);
+        return (int) $stmt->fetchColumn();
+    }
+
     /**
      * 课程讲义列表（含文件名）。
      * $publishedOnly=true 供学生端：仅已发布。
      *
      * @return array<int, array>
      */
-    public function listByCourse(int $courseId, bool $publishedOnly = false): array
+    public function listByCourse(int $courseId, bool $publishedOnly = false, ?Pagination $pagination = null): array
     {
         $sql = 'SELECT h.*, f.original_name, f.size
                 FROM handouts h INNER JOIN files f ON f.id = h.file_id
@@ -84,8 +96,16 @@ final class HandoutRepository
             $sql .= " AND h.status = 'published'";
         }
         $sql .= ' ORDER BY h.id DESC';
+        if ($pagination !== null) {
+            $sql .= ' LIMIT :limit OFFSET :offset';
+        }
         $stmt = $this->db()->prepare($sql);
-        $stmt->execute(['course_id' => $courseId]);
+        $stmt->bindValue('course_id', $courseId);
+        if ($pagination !== null) {
+            $stmt->bindValue('limit', $pagination->limit(), PDO::PARAM_INT);
+            $stmt->bindValue('offset', $pagination->offset(), PDO::PARAM_INT);
+        }
+        $stmt->execute();
         return $stmt->fetchAll();
     }
 }

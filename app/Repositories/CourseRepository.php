@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Repositories;
 
 use App\Support\Database;
+use App\Support\Pagination;
 use PDO;
 
 final class CourseRepository
@@ -55,10 +56,24 @@ final class CourseRepository
         return $stmt->fetch() ?: null;
     }
 
-    /** @return array<int, array> 全部课程（教师端） */
-    public function listAll(): array
+    /** 全部课程数量（教师端分页用） */
+    public function countAll(): int
     {
-        return $this->db()->query('SELECT * FROM courses ORDER BY id DESC')->fetchAll();
+        return (int) $this->db()->query('SELECT COUNT(*) FROM courses')->fetchColumn();
+    }
+
+    /** @return array<int, array> 全部课程（教师端）；传入 $pagination 时按分页切片 */
+    public function listAll(?Pagination $pagination = null): array
+    {
+        $sql = 'SELECT * FROM courses ORDER BY id DESC';
+        if ($pagination === null) {
+            return $this->db()->query($sql)->fetchAll();
+        }
+        $stmt = $this->db()->prepare($sql . ' LIMIT :limit OFFSET :offset');
+        $stmt->bindValue('limit', $pagination->limit(), PDO::PARAM_INT);
+        $stmt->bindValue('offset', $pagination->offset(), PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll();
     }
 
     /**

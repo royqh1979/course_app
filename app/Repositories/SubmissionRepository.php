@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Repositories;
 
 use App\Support\Database;
+use App\Support\Pagination;
 use PDO;
 
 /**
@@ -87,24 +88,38 @@ final class SubmissionRepository
         ]);
     }
 
+    public function countByAssignment(int $assignmentId): int
+    {
+        $stmt = $this->db()->prepare('SELECT COUNT(*) FROM submissions WHERE assignment_id = :assignment_id');
+        $stmt->execute(['assignment_id' => $assignmentId]);
+        return (int) $stmt->fetchColumn();
+    }
+
     /**
-     * 教师端：某作业的全部提交（含学生信息、文件元数据、实时迟交计算）。
+     * 教师端：某作业的提交列表（含学生信息、文件元数据、实时迟交计算）。
      *
      * @return array<int, array>
      */
-    public function listByAssignment(int $assignmentId): array
+    public function listByAssignment(int $assignmentId, ?Pagination $pagination = null): array
     {
-        $stmt = $this->db()->prepare(
-            'SELECT s.*, st.student_no, st.name AS student_name, f.original_name, f.size, a.deadline_at,
+        $sql = 'SELECT s.*, st.student_no, st.name AS student_name, f.original_name, f.size, a.deadline_at,
                     ' . self::LATE_EXPR . ' AS is_late
              FROM submissions s
              INNER JOIN students st ON st.id = s.student_id
              INNER JOIN files f ON f.id = s.file_id
              INNER JOIN assignments a ON a.id = s.assignment_id
              WHERE s.assignment_id = :assignment_id
-             ORDER BY st.student_no'
-        );
-        $stmt->execute(['assignment_id' => $assignmentId]);
+             ORDER BY st.student_no';
+        if ($pagination !== null) {
+            $sql .= ' LIMIT :limit OFFSET :offset';
+        }
+        $stmt = $this->db()->prepare($sql);
+        $stmt->bindValue('assignment_id', $assignmentId);
+        if ($pagination !== null) {
+            $stmt->bindValue('limit', $pagination->limit(), PDO::PARAM_INT);
+            $stmt->bindValue('offset', $pagination->offset(), PDO::PARAM_INT);
+        }
+        $stmt->execute();
         return $stmt->fetchAll();
     }
 }

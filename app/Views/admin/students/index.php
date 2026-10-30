@@ -85,3 +85,12 @@
     </tbody>
 </table>
 </div>
+<?php
+$route = 'admin/students';
+$params = ['keyword' => $keyword, 'status' => $status];
+if ($unmatchedOnly) {
+    $params['unmatched'] = '1';
+}
+$pageParam = 'page';
+require __DIR__ . '/../../_pagination.php';
+?>
