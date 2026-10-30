@@ -82,7 +82,9 @@ final class AdminStudentController extends BaseController
         $this->requireCsrf();
 
         $student = $this->findStudent();
-        $newPassword = bin2hex(random_bytes(6));
+        // 随机临时密码：12 位十六进制 + 1 个符号，满足密码强度策略（字母+数字+符号）
+        $symbols = '!@#$%^&*-_=+';
+        $newPassword = bin2hex(random_bytes(6)) . $symbols[random_int(0, strlen($symbols) - 1)];
         $this->students->changePassword((int) $student['id'], PasswordService::hash($newPassword));
 
         $this->logs->addAuthLog('student', (int) $student['id'], $student['student_no'], 'password_reset', 'success', $this->ip(), $this->userAgent());

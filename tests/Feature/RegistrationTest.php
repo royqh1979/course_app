@@ -32,6 +32,29 @@ final class RegistrationTest extends FeatureTestCase
         $res = $client->get('/?r=register');
         $this->assertSame(200, $res->status);
         $this->assertStringContainsString('学生注册', $res->body);
+        // 页面须可见密码要求提示（手机端无 title 悬浮，必须有文字说明）
+        $this->assertStringContainsString('字母、数字和符号', $res->body);
+        // 学号与姓名注册后不可修改的提示须写清楚
+        $this->assertStringContainsString('学号与姓名注册后均不可修改', $res->body);
+    }
+
+    public function testRegisterRejectsWeakPasswords(): void
+    {
+        $students = new StudentRepository();
+        $cases = [
+            '2024011' => ['12345678', '纯数字'],
+            '2024012' => ['abcd1234', '缺符号'],
+            '2024013' => ['abcdefgh!', '缺数字'],
+            '2024014' => ['abc12345!中文', '含非 ASCII 字符'],
+            '2024015' => ['abc 1234!', '含空格'],
+        ];
+        foreach ($cases as $studentNo => [$password, $label]) {
+            $client = new HttpClient(self::$baseUrl);
+            $res = $this->register($client, (string) $studentNo, '张三', $password);
+            $this->assertSame(302, $res->status);
+            $this->assertStringContainsString('r=register', $res->header('location') ?? '', $label . '应被拒绝');
+            $this->assertNull($students->findByStudentNo((string) $studentNo), $label . '不应建号');
+        }
     }
 
     public function testStudentCanRegisterAndLogin(): void

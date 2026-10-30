@@ -60,4 +60,27 @@ final class PasswordChangeTest extends FeatureTestCase
         $res = $this->login($check, 'student', '2024001', 'student-pass-123');
         $this->assertStringContainsString('r=student/home', $res->header('location') ?? '');
     }
+
+    public function testChangePasswordRejectsWeakNewPassword(): void
+    {
+        $this->createStudent();
+        $client = new HttpClient(self::$baseUrl);
+        $this->login($client, 'student', '2024001', 'student-pass-123');
+
+        $page = $client->get('/?r=password');
+        $this->assertStringContainsString('字母、数字和符号', $page->body, '改密页须有密码要求提示');
+        $res = $client->post('/?r=password', [
+            '_csrf' => $page->csrfToken() ?? '',
+            'old_password' => 'student-pass-123',
+            'new_password' => 'abcd1234',
+            'confirm_password' => 'abcd1234',
+        ]);
+        $this->assertSame(302, $res->status);
+        $this->assertStringContainsString('r=password', $res->header('location') ?? '');
+
+        // 弱新密码被拒，原密码不变
+        $check = new HttpClient(self::$baseUrl);
+        $login = $this->login($check, 'student', '2024001', 'student-pass-123');
+        $this->assertStringContainsString('r=student/home', $login->header('location') ?? '');
+    }
 }

@@ -2,13 +2,13 @@
 <div class="row justify-content-center">
     <div class="col-md-5">
         <h1 class="h3 mb-3">学生注册</h1>
-        <p class="text-muted">学号与姓名需与教师导入的课程名单一致，注册后自动获得对应课程权限。</p>
+        <p class="text-muted">学号与姓名需与教师导入的课程名单一致，注册后自动获得对应课程权限。<strong>学号与姓名注册后均不可修改</strong>（这是课程权限匹配的依据），请与名单仔细核对后再提交。</p>
         <form method="post" action="?r=register">
             <?= Csrf::field() ?>
             <div class="mb-3">
                 <label class="form-label" for="student_no">学号</label>
                 <input class="form-control" id="student_no" name="student_no" required maxlength="32"
-                       placeholder="与名单一致的学号，区分前导零">
+                       placeholder="与名单一致的学号，区分前导零，注册后不可修改">
             </div>
             <div class="mb-3">
                 <label class="form-label" for="name">姓名</label>
@@ -17,7 +17,9 @@
             </div>
             <div class="mb-3">
                 <label class="form-label" for="password">密码</label>
-                <input class="form-control" id="password" name="password" type="password" required minlength="8">
+                <input class="form-control" id="password" name="password" type="password" required minlength="8"
+                       autocomplete="new-password">
+                <div class="form-text">至少 8 位，须同时包含字母、数字和符号；仅限英文键盘可见字符（不含空格）。</div>
             </div>
             <div class="mb-3">
                 <label class="form-label" for="confirm_password">确认密码</label>

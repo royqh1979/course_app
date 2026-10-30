@@ -22,8 +22,13 @@ if ($argc < 4) {
 $studentNo = Validate::cleanStudentNo($studentNo);
 $name = Validate::cleanName($name);
 
-if (!Validate::isValidStudentNo($studentNo) || !Validate::isValidName($name) || mb_strlen($password) < 8) {
-    fwrite(STDERR, "学号或姓名格式不正确，密码至少 8 位。\n");
+if (!Validate::isValidStudentNo($studentNo) || !Validate::isValidName($name)) {
+    fwrite(STDERR, "学号或姓名格式不正确。\n");
+    exit(1);
+}
+$policyError = PasswordService::validatePolicy($password);
+if ($policyError !== null) {
+    fwrite(STDERR, "密码不符合要求：{$policyError}\n");
     exit(1);
 }
 

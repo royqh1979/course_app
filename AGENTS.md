@@ -109,6 +109,7 @@
 ## 密码与安全要求
 
 - 密码用 `password_hash()`（可指定 `PASSWORD_BCRYPT`）保存，`password_verify()` 验证，必要时 `password_needs_rehash()`；**禁止** MD5/SHA1/裸 SHA256。
+- **新密码强度策略**（`PasswordService::validatePolicy()`，注册/改密/CLI 建号统一执行）：长度 ≥8，**必须同时包含字母、数字、符号**，且只允许 ASCII 可见字符（0x21–0x7E，不含空格/中文）；教师重置学生密码生成的临时随机密码也满足该策略。注册/改密页面须有可见的要求提示文字。
 - 日志中不得记录密码、密码哈希或完整 Session 信息。
 - 全部数据库操作使用 PDO 预处理语句；页面输出做 HTML 转义（防 XSS）；写操作表单加 CSRF 防护。
 - Cookie 设置 `HttpOnly`、`Secure`、适当 `SameSite`；登录成功后重新生成 Session ID；登录失败做限流。

@@ -36,3 +36,4 @@
 | 备课区文件夹树（按类型两棵树、深度 ≤3、空文件夹才可删、条目移入移出、按目录浏览/导入） | `Integration/FolderFlowTest`、`Feature/LibraryFlowTest::testFolderOrganizeFlow` |
 | 备课区页面拆分（课件/作业两个独立页、历史 500 修复后页面渲染断言） | `Feature/LibraryFlowTest::testFolderOrganizeFlow`、`testAssignmentTemplatePagesRenderAndCreate` |
 | 课程页四拆分（讲义/作业/名单/分组独立分页）与学生课程三拆分 | `Feature/PaginationFlowTest`、`Feature/PermissionTest`、`Feature/GroupFlowTest`（各页 200 断言） |
+| 密码强度策略（注册/改密/CLI：≥8 位、字母+数字+符号、仅 ASCII 可见字符；页面可见提示） | `Unit/PasswordServiceTest::testValidatePolicy*`、`Feature/RegistrationTest::testRegisterRejectsWeakPasswords`、`Feature/PasswordChangeTest::testChangePasswordRejectsWeakNewPassword` |

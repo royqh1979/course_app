@@ -84,8 +84,9 @@ final class AuthController extends BaseController
             Session::flash('error', '学号或姓名格式不正确（学号不含空格，最长 32 字符）。');
             redirect('?r=register');
         }
-        if (mb_strlen($password) < 8) {
-            Session::flash('error', '密码长度至少 8 位。');
+        $policyError = PasswordService::validatePolicy($password);
+        if ($policyError !== null) {
+            Session::flash('error', $policyError);
             redirect('?r=register');
         }
         if ($password !== $confirm) {
@@ -132,8 +133,9 @@ final class AuthController extends BaseController
         $new = (string) ($_POST['new_password'] ?? '');
         $confirm = (string) ($_POST['confirm_password'] ?? '');
 
-        if (mb_strlen($new) < 8) {
-            Session::flash('error', '新密码长度至少 8 位。');
+        $policyError = PasswordService::validatePolicy($new);
+        if ($policyError !== null) {
+            Session::flash('error', '新密码不符合要求：' . $policyError);
             redirect('?r=password');
         }
         if ($new !== $confirm) {

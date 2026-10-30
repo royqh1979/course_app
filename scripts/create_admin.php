@@ -18,8 +18,13 @@ if ($argc < 3) {
 
 [, $username, $password] = $argv;
 $username = trim($username);
-if ($username === '' || mb_strlen($password) < 8) {
-    fwrite(STDERR, "用户名不能为空，密码至少 8 位。\n");
+if ($username === '') {
+    fwrite(STDERR, "用户名不能为空。\n");
+    exit(1);
+}
+$policyError = PasswordService::validatePolicy($password);
+if ($policyError !== null) {
+    fwrite(STDERR, "密码不符合要求：{$policyError}\n");
     exit(1);
 }
 
