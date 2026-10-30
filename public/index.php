@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Controllers\AdminStudentController;
 use App\Controllers\AuthController;
 use App\Controllers\CourseController;
+use App\Controllers\QrCodeController;
 use App\Controllers\RosterController;
 use App\Controllers\StudentController;
 use App\Repositories\AdminRepository;
@@ -44,6 +45,7 @@ $courseController = new CourseController($auth, $courses, $roster, $logs);
 $rosterController = new RosterController($auth, $roster, $courses, $logs);
 $studentController = new StudentController($auth, $courses);
 $adminStudentController = new AdminStudentController($auth, $students, $logs);
+$qrCodeController = new QrCodeController($auth);
 
 $home = static function () use ($auth): void {
     $user = $auth->currentUser();
@@ -77,6 +79,7 @@ match ([$method, $route]) {
     ['GET', 'admin/roster/template'] => $rosterController->template(),
     ['POST', 'admin/roster/import'] => $rosterController->import(),
     ['POST', 'admin/roster/import/confirm'] => $rosterController->confirmImport(),
+    ['GET', 'admin/qrcode'] => $qrCodeController->show(),
     ['GET', 'admin/students'] => $adminStudentController->index(),
     ['POST', 'admin/students/archive'] => $adminStudentController->archive(),
     ['POST', 'admin/students/restore'] => $adminStudentController->restore(),

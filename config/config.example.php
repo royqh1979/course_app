@@ -8,4 +8,9 @@ return [
         'user' => 'class_app',
         'pass' => '填写数据库密码',
     ],
+    'app' => [
+        // 站点对外地址，学生手机扫码访问注册页时使用；
+        // 填学生手机能访问到的地址，如 http://192.168.1.10:8080 或 https://course.example.com
+        'base_url' => '',
+    ],
 ];

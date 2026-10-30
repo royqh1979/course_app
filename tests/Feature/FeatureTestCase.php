@@ -31,10 +31,7 @@ abstract class FeatureTestCase extends TestCase
 
         $docroot = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'public';
         $logFile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'course_app_test_server.log';
-        $env = array_merge(getenv(), [
-            'APP_ENV' => 'test',
-            'DB_NAME' => 'class_app_test',
-        ]);
+        $env = array_merge(getenv(), static::serverEnv());
 
         $descriptors = [
             0 => ['pipe', 'r'],
@@ -59,6 +56,15 @@ abstract class FeatureTestCase extends TestCase
             usleep(100000);
         }
         throw new RuntimeException('测试服务器启动失败，日志：' . $logFile);
+    }
+
+    /** 测试服务器环境变量；子类可覆盖以注入额外配置（如 APP_BASE_URL） */
+    protected static function serverEnv(): array
+    {
+        return [
+            'APP_ENV' => 'test',
+            'DB_NAME' => 'class_app_test',
+        ];
     }
 
     public static function tearDownAfterClass(): void

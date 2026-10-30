@@ -1,5 +1,6 @@
 # Composer 依赖（composer.lock 作为应用需提交，保证部署可复现）
-vendor/
+# 仅忽略仓库根目录的 vendor/，不忽略 public/assets/vendor/（本地化前端库需提交）
+/vendor/
 
 # 私有上传文件与临时文件（禁止入库）
 storage/

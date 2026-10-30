@@ -6,15 +6,16 @@
 <p class="text-muted">文件：<?= e($fileName) ?>（当前尚未写入数据库，确认后才生效）</p>
 
 <div class="row g-3 mb-4">
-    <div class="col-md-2"><div class="border rounded p-3 text-center"><div class="fs-4"><?= (int) $result['total'] ?></div><div class="text-muted">总行数</div></div></div>
-    <div class="col-md-2"><div class="border rounded p-3 text-center"><div class="fs-4 text-success"><?= count($result['valid']) ?></div><div class="text-muted">有效行</div></div></div>
-    <div class="col-md-2"><div class="border rounded p-3 text-center"><div class="fs-4 text-danger"><?= count($result['errors']) ?></div><div class="text-muted">错误行</div></div></div>
-    <div class="col-md-2"><div class="border rounded p-3 text-center"><div class="fs-4 text-warning"><?= count($result['duplicates']) ?></div><div class="text-muted">文件内重复行</div></div></div>
-    <div class="col-md-4"><div class="border rounded p-3 text-center"><div class="fs-4"><?= (int) $result['insert_count'] ?> 新增 / <?= (int) $result['update_count'] ?> 更新</div><div class="text-muted">相对当前名单</div></div></div>
+    <div class="col-6 col-md-4 col-lg-2"><div class="border rounded p-3 text-center"><div class="fs-4"><?= (int) $result['total'] ?></div><div class="text-muted">总行数</div></div></div>
+    <div class="col-6 col-md-4 col-lg-2"><div class="border rounded p-3 text-center"><div class="fs-4 text-success"><?= count($result['valid']) ?></div><div class="text-muted">有效行</div></div></div>
+    <div class="col-6 col-md-4 col-lg-2"><div class="border rounded p-3 text-center"><div class="fs-4 text-danger"><?= count($result['errors']) ?></div><div class="text-muted">错误行</div></div></div>
+    <div class="col-6 col-md-4 col-lg-2"><div class="border rounded p-3 text-center"><div class="fs-4 text-warning"><?= count($result['duplicates']) ?></div><div class="text-muted">文件内重复行</div></div></div>
+    <div class="col-12 col-lg-4"><div class="border rounded p-3 text-center"><div class="fs-4"><?= (int) $result['insert_count'] ?> 新增 / <?= (int) $result['update_count'] ?> 更新</div><div class="text-muted">相对当前名单</div></div></div>
 </div>
 
 <?php if ($result['errors'] !== []): ?>
 <h2 class="h5 text-danger">错误行（导入时将被跳过）</h2>
+<div class="table-responsive">
 <table class="table table-sm table-striped mb-4">
     <thead><tr><th style="width:120px">Excel 行号</th><th>原因</th></tr></thead>
     <tbody>
@@ -23,10 +24,12 @@
     <?php endforeach; ?>
     </tbody>
 </table>
+</div>
 <?php endif; ?>
 
 <?php if ($result['duplicates'] !== []): ?>
 <h2 class="h5 text-warning">文件内重复学号（导入时将被跳过）</h2>
+<div class="table-responsive">
 <table class="table table-sm table-striped mb-4">
     <thead><tr><th style="width:120px">Excel 行号</th><th>学号</th><th>说明</th></tr></thead>
     <tbody>
@@ -39,9 +42,11 @@
     <?php endforeach; ?>
     </tbody>
 </table>
+</div>
 <?php endif; ?>
 
 <h2 class="h5">有效数据预览（前 20 行）</h2>
+<div class="table-responsive">
 <table class="table table-sm table-striped mb-4">
     <thead><tr><th>Excel 行号</th><th>学号</th><th>姓名</th><th>班级</th><th>导入动作</th></tr></thead>
     <tbody>
@@ -59,6 +64,7 @@
     <?php endif; ?>
     </tbody>
 </table>
+</div>
 
 <?php if ($result['valid'] !== []): ?>
 <form method="post" action="?r=admin/roster/import/confirm" class="d-inline"

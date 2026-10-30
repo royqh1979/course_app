@@ -1,11 +1,13 @@
 <?php use App\Services\Csrf; ?>
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h3 m-0">课程管理</h1>
-    <div class="d-flex gap-2">
+    <div class="d-flex gap-2 flex-wrap">
+        <a class="btn btn-outline-secondary" href="?r=admin/qrcode">注册二维码</a>
         <a class="btn btn-outline-secondary" href="?r=admin/students">学生账号管理</a>
         <a class="btn btn-primary" href="?r=admin/courses/create">新建课程</a>
     </div>
 </div>
+<div class="table-responsive">
 <table class="table table-striped align-middle">
     <thead>
     <tr>
@@ -40,3 +42,4 @@
     <?php endif; ?>
     </tbody>
 </table>
+</div>

@@ -19,7 +19,9 @@
 
 **第二阶段（名单与账号）已完成**：学生注册、名单 Excel 标准模板下载、名单导入（上传预校验→确认两段式，错误/重复定位到 Excel 行号，事务增量导入）、未匹配账号查询、学生归档/恢复/重置密码/安全删除。
 
-三层自动化测试（`composer test`，91 个用例）全部通过。
+**注册二维码与全站响应式已完成**：教师端 `?r=admin/qrcode` 展示注册二维码（服务端 SVG，地址取 `app.base_url` 配置或按请求推导）；全站响应式布局（可折叠导航、表格横向滚动）；Bootstrap CSS/JS 已本地化到 `public/assets/vendor/bootstrap/`，**全站不依赖任何外部公共库/CDN**。
+
+三层自动化测试（`composer test`，97 个用例）全部通过。
 
 - 需求唯一权威来源：`课程讲义与作业管理系统需求方案.md`（中文，约 550 行）。任何与该文档冲突的实现决定都应先与用户确认。
 - 已实现代码按方案的原生 PHP 分层组织：`public/index.php` 前端控制器 + `app/`（Controllers / Repositories / Services / Support / Views）。
@@ -41,6 +43,8 @@
   - `phpoffice/phpspreadsheet`（导入 `.xlsx`/`.xls`，导出 `.xlsx`）
   - `ramsey/uuid`（生成 UUID v7 作为磁盘文件名）
   - ZipArchive（打包下载作业）
+  - `chillerlan/php-qrcode`（服务端生成注册二维码 SVG）
+- **前端资源**：Bootstrap 5.3.3 CSS/JS 本地化在 `public/assets/vendor/bootstrap/`，禁止改用外部 CDN。
 
 ## 目录结构（实现时按此规划）
 

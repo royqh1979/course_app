@@ -56,6 +56,7 @@
 </form>
 <?php endif; ?>
 
+<div class="table-responsive">
 <table class="table table-sm table-striped">
     <thead>
     <tr><th>学号</th><th>姓名</th><th>班级</th><th></th></tr>
@@ -80,3 +81,4 @@
     <?php endif; ?>
     </tbody>
 </table>
+</div>

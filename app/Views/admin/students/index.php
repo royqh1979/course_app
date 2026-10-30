@@ -27,6 +27,7 @@
     </div>
 </form>
 
+<div class="table-responsive">
 <table class="table table-striped align-middle">
     <thead>
     <tr>
@@ -83,3 +84,4 @@
     <?php endif; ?>
     </tbody>
 </table>
+</div>

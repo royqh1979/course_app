@@ -13,6 +13,11 @@ $config = [
         'charset' => 'utf8mb4',
     ],
     'storage_path' => dirname(__DIR__) . '/storage',
+    'app' => [
+        // 站点对外地址（生成注册二维码等绝对链接用），如 https://course.example.com 或 http://192.168.1.10:8080
+        // 留空则按当前请求自动推导
+        'base_url' => '',
+    ],
     'auth' => [
         // 登录失败限流：时间窗内最多失败次数
         'login_max_attempts' => 5,
@@ -35,6 +40,10 @@ foreach ($envDbMap as $envName => $key) {
 $appEnv = getenv('APP_ENV');
 if ($appEnv !== false && $appEnv !== '') {
     $config['env'] = $appEnv;
+}
+$appBaseUrl = getenv('APP_BASE_URL');
+if ($appBaseUrl !== false && $appBaseUrl !== '') {
+    $config['app']['base_url'] = $appBaseUrl;
 }
 
 return $config;
