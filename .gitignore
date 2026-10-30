@@ -1,0 +1,21 @@
+# Composer 依赖
+vendor/
+composer.lock
+
+# 私有上传文件与临时文件（禁止入库）
+storage/
+public/assets/uploads/
+
+# 本地敏感配置
+config/*.local.php
+.env
+.env.*
+
+# 日志
+*.log
+
+# IDE / 系统杂项
+.idea/
+.vscode/
+Thumbs.db
+.DS_Store
