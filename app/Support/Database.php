@@ -38,4 +38,29 @@ final class Database
     {
         self::$pdo = $pdo;
     }
+
+    /**
+     * 在事务中执行回调，异常时整体回滚。
+     * 已处于外层事务时（如集成测试）使用 SAVEPOINT 嵌套，保证内层失败仍能局部回滚。
+     */
+    private static int $transactionLevel = 0;
+
+    public static function transaction(callable $callback): mixed
+    {
+        $pdo = self::pdo();
+        $nested = $pdo->inTransaction();
+        $savepoint = 'sp_' . (++self::$transactionLevel);
+
+        $nested ? $pdo->exec("SAVEPOINT {$savepoint}") : $pdo->beginTransaction();
+        try {
+            $result = $callback($pdo);
+            $nested ? $pdo->exec("RELEASE SAVEPOINT {$savepoint}") : $pdo->commit();
+            return $result;
+        } catch (\Throwable $e) {
+            $nested ? $pdo->exec("ROLLBACK TO SAVEPOINT {$savepoint}") : $pdo->rollBack();
+            throw $e;
+        } finally {
+            self::$transactionLevel--;
+        }
+    }
 }

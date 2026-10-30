@@ -22,5 +22,6 @@
             </div>
             <button type="submit" class="btn btn-primary w-100">登录</button>
         </form>
+        <p class="mt-3 text-center"><a href="?r=register">学生注册新账号</a></p>
     </div>
 </div>

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Controllers\AdminStudentController;
 use App\Controllers\AuthController;
 use App\Controllers\CourseController;
 use App\Controllers\RosterController;
@@ -38,10 +39,11 @@ $auth = new AuthService(
 $courses = new CourseRepository();
 $roster = new RosterRepository();
 
-$authController = new AuthController($auth);
+$authController = new AuthController($auth, $students, $logs);
 $courseController = new CourseController($auth, $courses, $roster, $logs);
 $rosterController = new RosterController($auth, $roster, $courses, $logs);
 $studentController = new StudentController($auth, $courses);
+$adminStudentController = new AdminStudentController($auth, $students, $logs);
 
 $home = static function () use ($auth): void {
     $user = $auth->currentUser();
@@ -57,6 +59,8 @@ $method = (string) $_SERVER['REQUEST_METHOD'];
 match ([$method, $route]) {
     ['GET', 'login'] => $authController->showLogin(),
     ['POST', 'login'] => $authController->login(),
+    ['GET', 'register'] => $authController->showRegister(),
+    ['POST', 'register'] => $authController->register(),
     ['POST', 'logout'] => $authController->logout(),
     ['GET', 'password'] => $authController->showChangePassword(),
     ['POST', 'password'] => $authController->changePassword(),
@@ -70,6 +74,14 @@ match ([$method, $route]) {
     ['GET', 'admin/courses/show'] => $courseController->show(),
     ['POST', 'admin/roster/add'] => $rosterController->add(),
     ['POST', 'admin/roster/delete'] => $rosterController->delete(),
+    ['GET', 'admin/roster/template'] => $rosterController->template(),
+    ['POST', 'admin/roster/import'] => $rosterController->import(),
+    ['POST', 'admin/roster/import/confirm'] => $rosterController->confirmImport(),
+    ['GET', 'admin/students'] => $adminStudentController->index(),
+    ['POST', 'admin/students/archive'] => $adminStudentController->archive(),
+    ['POST', 'admin/students/restore'] => $adminStudentController->restore(),
+    ['POST', 'admin/students/reset-password'] => $adminStudentController->resetPassword(),
+    ['POST', 'admin/students/delete'] => $adminStudentController->delete(),
     ['GET', 'student/home'] => $studentController->home(),
     ['GET', 'student/course'] => $studentController->course(),
     default => http_response_code(404),

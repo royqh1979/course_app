@@ -28,8 +28,25 @@ final class HttpClient
         return $this->request('POST', $path, $data);
     }
 
+    /** multipart 文件上传（用于名单 Excel 导入测试） */
+    public function upload(string $path, string $fieldName, string $filePath, string $fileName, array $data = []): HttpResponse
+    {
+        $boundary = '----CourseAppTest' . bin2hex(random_bytes(8));
+        $body = '';
+        foreach ($data as $name => $value) {
+            $body .= "--{$boundary}\r\nContent-Disposition: form-data; name=\"{$name}\"\r\n\r\n{$value}\r\n";
+        }
+        $body .= "--{$boundary}\r\n"
+            . "Content-Disposition: form-data; name=\"{$fieldName}\"; filename=\"{$fileName}\"\r\n"
+            . "Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\r\n\r\n"
+            . file_get_contents($filePath) . "\r\n"
+            . "--{$boundary}--\r\n";
+
+        return $this->request('POST', $path, null, $body, "multipart/form-data; boundary={$boundary}");
+    }
+
     /** @param array<string, string>|null $data */
-    public function request(string $method, string $path, ?array $data = null): HttpResponse
+    public function request(string $method, string $path, ?array $data = null, ?string $rawContent = null, ?string $contentType = null): HttpResponse
     {
         $headers = [];
         if ($this->cookies !== []) {
@@ -41,7 +58,10 @@ final class HttpClient
         }
 
         $content = null;
-        if ($data !== null) {
+        if ($rawContent !== null) {
+            $content = $rawContent;
+            $headers[] = 'Content-Type: ' . $contentType;
+        } elseif ($data !== null) {
             $content = http_build_query($data);
             $headers[] = 'Content-Type: application/x-www-form-urlencoded';
         }

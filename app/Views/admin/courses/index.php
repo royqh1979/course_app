@@ -1,7 +1,10 @@
 <?php use App\Services\Csrf; ?>
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h3 m-0">课程管理</h1>
-    <a class="btn btn-primary" href="?r=admin/courses/create">新建课程</a>
+    <div class="d-flex gap-2">
+        <a class="btn btn-outline-secondary" href="?r=admin/students">学生账号管理</a>
+        <a class="btn btn-primary" href="?r=admin/courses/create">新建课程</a>
+    </div>
 </div>
 <table class="table table-striped align-middle">
     <thead>

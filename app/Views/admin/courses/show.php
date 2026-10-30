@@ -14,9 +14,27 @@
 <?php endif; ?>
 
 <h2 class="h5 mt-4">课程名单（<?= count($roster) ?> 人）</h2>
-<p class="text-muted">名单与学生账号“学号 + 姓名”同时匹配后，学生即获得本课程访问权限；Excel 批量导入将在第二阶段提供。</p>
+<p class="text-muted">名单与学生账号“学号 + 姓名”同时匹配后，学生即获得本课程访问权限；导入后权限即时生效。</p>
 
 <?php if ($course['status'] === 'active'): ?>
+<div class="border rounded p-3 mb-3">
+    <h3 class="h6">Excel 批量导入（增量导入：新学号新增、已有学号更新姓名和班级）</h3>
+    <form method="post" action="?r=admin/roster/import" enctype="multipart/form-data" class="row g-2 align-items-end">
+        <?= Csrf::field() ?>
+        <input type="hidden" name="course_id" value="<?= (int) $course['id'] ?>">
+        <div class="col-auto">
+            <label class="form-label" for="roster_file">名单文件（.xlsx / .xls，≤5MB）</label>
+            <input class="form-control" type="file" id="roster_file" name="roster_file" accept=".xlsx,.xls" required>
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-primary">上传并预校验</button>
+        </div>
+        <div class="col-auto">
+            <a class="btn btn-outline-secondary" href="?r=admin/roster/template">下载标准模板</a>
+        </div>
+    </form>
+</div>
+
 <form method="post" action="?r=admin/roster/add" class="row g-2 align-items-end mb-3">
     <?= Csrf::field() ?>
     <input type="hidden" name="course_id" value="<?= (int) $course['id'] ?>">

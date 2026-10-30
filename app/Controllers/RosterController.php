@@ -8,22 +8,41 @@ use App\Repositories\CourseRepository;
 use App\Repositories\LogRepository;
 use App\Repositories\RosterRepository;
 use App\Services\AuthService;
+use App\Services\RosterImportService;
+use App\Support\App;
 use App\Support\Session;
 use App\Support\Validate;
+use App\Support\View;
 use PDOException;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Ramsey\Uuid\Uuid;
 
 final class RosterController extends BaseController
 {
+    /** 名单导入文件大小上限：5 MB */
+    private const IMPORT_MAX_SIZE = 5 * 1024 * 1024;
+
+    private const IMPORT_EXTENSIONS = ['xlsx', 'xls'];
+
+    private const IMPORT_MIMES = [
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-excel',
+        'application/zip',
+        'application/x-zip-compressed',
+        'application/octet-stream',
+    ];
+
     public function __construct(
         AuthService $auth,
         private readonly RosterRepository $roster,
         private readonly CourseRepository $courses,
         private readonly LogRepository $logs,
+        private readonly RosterImportService $importService = new RosterImportService(),
     ) {
         parent::__construct($auth);
     }
 
-    /** 手工逐条添加名单（Excel 批量导入属第二阶段） */
+    /** 手工逐条添加名单 */
     public function add(): void
     {
         $admin = $this->requireUser(AuthService::TYPE_ADMIN);
@@ -71,5 +90,173 @@ final class RosterController extends BaseController
 
         Session::flash('success', '名单已移除，该学生即时失去课程权限（历史数据保留）。');
         redirect('?r=admin/courses/show&id=' . $entry['course_id']);
+    }
+
+    /** 下载名单导入标准模板（姓名 / 班级 / 学号，学号列为文本格式） */
+    public function template(): void
+    {
+        $this->requireUser(AuthService::TYPE_ADMIN);
+
+        $spreadsheet = $this->importService->createTemplate();
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment; filename="roster_template.xlsx"; filename*=UTF-8\'\'' . rawurlencode('课程名单导入模板.xlsx'));
+        (new Xlsx($spreadsheet))->save('php://output');
+        exit;
+    }
+
+    /**
+     * 导入第一步：接收上传文件并预校验，展示总行/有效/错误/重复统计，不写库。
+     */
+    public function import(): void
+    {
+        $admin = $this->requireUser(AuthService::TYPE_ADMIN);
+        $this->requireCsrf();
+
+        $courseId = (int) ($_POST['course_id'] ?? 0);
+        $course = $this->courses->findById($courseId);
+        if ($course === null) {
+            $this->notFound('课程不存在。');
+        }
+
+        $storedPath = $this->storeUpload($courseId);
+        if ($storedPath === null) {
+            redirect('?r=admin/courses/show&id=' . $courseId);
+        }
+
+        try {
+            $rows = $this->importService->parse($this->absolutePath($storedPath));
+        } catch (\Throwable) {
+            $this->discardUpload($storedPath);
+            Session::flash('error', '无法解析该文件，请使用标准模板（.xlsx / .xls）。');
+            redirect('?r=admin/courses/show&id=' . $courseId);
+        }
+
+        $result = $this->importService->validate($rows, $this->roster->existingStudentNos($courseId));
+        if ($result['total'] === 0) {
+            $this->discardUpload($storedPath);
+            Session::flash('error', '文件中没有可导入的数据行（第 1 行为表头）。');
+            redirect('?r=admin/courses/show&id=' . $courseId);
+        }
+
+        // 暂存待确认导入，确认时以暂存文件为准重新解析
+        $_SESSION['roster_import'] = [
+            'course_id' => $courseId,
+            'path' => $storedPath,
+            'original_name' => (string) ($_FILES['roster_file']['name'] ?? ''),
+        ];
+
+        View::render('admin/roster/import_preview', [
+            'title' => '名单导入预校验',
+            'course' => $course,
+            'result' => $result,
+            'fileName' => (string) ($_FILES['roster_file']['name'] ?? ''),
+        ]);
+    }
+
+    /**
+     * 导入第二步：确认后按暂存文件重新解析校验，在事务中增量导入，失败整体回滚。
+     */
+    public function confirmImport(): void
+    {
+        $admin = $this->requireUser(AuthService::TYPE_ADMIN);
+        $this->requireCsrf();
+
+        $pending = $_SESSION['roster_import'] ?? null;
+        $courseId = (int) ($_POST['course_id'] ?? 0);
+        $course = $this->courses->findById($courseId);
+        if ($course === null) {
+            $this->notFound('课程不存在。');
+        }
+        if (!is_array($pending) || (int) $pending['course_id'] !== $courseId || !is_file($this->absolutePath($pending['path']))) {
+            Session::flash('error', '导入会话已失效，请重新上传名单文件。');
+            redirect('?r=admin/courses/show&id=' . $courseId);
+        }
+
+        // 以暂存文件为唯一数据源，重新解析并按当前名单重新校验
+        $rows = $this->importService->parse($this->absolutePath($pending['path']));
+        $result = $this->importService->validate($rows, $this->roster->existingStudentNos($courseId));
+
+        $summary = $this->roster->importBatch($courseId, $result['valid']);
+        $this->discardUpload($pending['path']);
+        unset($_SESSION['roster_import']);
+
+        $this->logs->addAuditLog(
+            'admin',
+            (int) $admin['id'],
+            'roster.import',
+            'course',
+            (string) $courseId,
+            sprintf(
+                '文件：%s；新增 %d 人，更新 %d 人，跳过错误 %d 行、重复 %d 行',
+                $pending['original_name'],
+                $summary['inserted'],
+                $summary['updated'],
+                count($result['errors']),
+                count($result['duplicates'])
+            ),
+            $this->ip()
+        );
+
+        Session::flash('success', "导入完成：新增 {$summary['inserted']} 人，更新 {$summary['updated']} 人；权限即时生效。");
+        redirect('?r=admin/courses/show&id=' . $courseId);
+    }
+
+    /**
+     * 保存上传文件到 storage/imports/，校验顺序：后缀白名单 → 大小 → MIME。
+     * 返回相对 storage/ 的路径；失败时写入 flash 并返回 null。
+     */
+    private function storeUpload(int $courseId): ?string
+    {
+        $file = $_FILES['roster_file'] ?? null;
+        if (!is_array($file) || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            Session::flash('error', '请选择要上传的名单文件。');
+            return null;
+        }
+
+        $extension = strtolower(pathinfo((string) $file['name'], PATHINFO_EXTENSION));
+        if (!in_array($extension, self::IMPORT_EXTENSIONS, true)) {
+            Session::flash('error', '仅支持 .xlsx 或 .xls 格式的名单文件。');
+            return null;
+        }
+        if ((int) $file['size'] > self::IMPORT_MAX_SIZE) {
+            Session::flash('error', '名单文件大小不能超过 5 MB。');
+            return null;
+        }
+        $mime = (string) (finfo_file(finfo_open(FILEINFO_MIME_TYPE), (string) $file['tmp_name']) ?: '');
+        if (!in_array($mime, self::IMPORT_MIMES, true)) {
+            Session::flash('error', '文件内容类型不符合 Excel 格式要求。');
+            return null;
+        }
+
+        $storedPath = 'imports/' . Uuid::uuid7()->toString() . '.' . $extension;
+        $absolute = $this->absolutePath($storedPath);
+        if (!is_dir(dirname($absolute)) && !mkdir(dirname($absolute), 0750, true)) {
+            Session::flash('error', '服务器存储目录不可用，请联系管理员。');
+            return null;
+        }
+        if (!move_uploaded_file((string) $file['tmp_name'], $absolute) && !rename((string) $file['tmp_name'], $absolute)) {
+            Session::flash('error', '文件保存失败，请重试。');
+            return null;
+        }
+
+        // 替换旧的待确认导入文件
+        $previous = $_SESSION['roster_import'] ?? null;
+        if (is_array($previous) && ($previous['path'] ?? '') !== $storedPath) {
+            $this->discardUpload((string) $previous['path']);
+        }
+        return $storedPath;
+    }
+
+    private function absolutePath(string $storedPath): string
+    {
+        return rtrim((string) App::config('storage_path'), '/\\') . '/' . $storedPath;
+    }
+
+    private function discardUpload(string $storedPath): void
+    {
+        $absolute = $this->absolutePath($storedPath);
+        if (is_file($absolute)) {
+            unlink($absolute);
+        }
     }
 }

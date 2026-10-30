@@ -73,7 +73,7 @@ abstract class FeatureTestCase extends TestCase
     protected function setUp(): void
     {
         $pdo = Database::pdo();
-        foreach (['auth_logs', 'audit_logs', 'course_roster', 'courses', 'students', 'admins'] as $table) {
+        foreach (['auth_logs', 'audit_logs', 'submissions', 'course_roster', 'courses', 'students', 'admins'] as $table) {
             $pdo->exec("TRUNCATE TABLE `{$table}`");
         }
     }
