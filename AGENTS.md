@@ -15,13 +15,13 @@
 
 ### 当前状态（重要）
 
-**仓库目前只有需求文档，尚无任何代码、构建配置或测试。**
+**第一阶段（基础与权限）已完成**：管理员/学生登录与密码管理、登录限流、课程管理与归档、手工名单维护、学生课程权限实时查询，以及单元 / 集成 / HTTP 功能三层自动化测试（`composer test`，56 个用例）。
 
-- 唯一的需求来源：`课程讲义与作业管理系统需求方案.md`（中文，约 550 行）。
-- 不存在 `pyproject.toml`、`package.json`、`Cargo.toml`、`composer.json` 等配置文件；尚未初始化 Composer 项目。
-- 尚无构建、测试、部署流程。下文的“技术栈”“目录结构”等均来自需求方案，是实现时必须遵循的设计约定，而非已有代码的描述。
-
-开始编码前应通读需求方案；任何与该文档冲突的实现决定都应先与用户确认。
+- 需求唯一权威来源：`课程讲义与作业管理系统需求方案.md`（中文，约 550 行）。任何与该文档冲突的实现决定都应先与用户确认。
+- 已实现代码按方案的原生 PHP 分层组织：`public/index.php` 前端控制器 + `app/`（Controllers / Repositories / Services / Support / Views）。
+- 数据库：`database/schema.sql` 已建好首版全部 11 张表（含后续阶段用的 `files`、`handouts`、`assignments` 等）。本机 MariaDB 11.5（MySQL 兼容），库名 `class_app`（生产）/ `class_app_test`（测试），账号 `class_app` **无建库权限**，脚本只建表不建库。
+- 未实现：学生注册、名单 Excel 导入（第二阶段）；文件/讲义/作业/提交（第三阶段）；统计导出（第四阶段）。开发顺序见需求方案第十节。
+- 测试与验收标准（方案第十一节）的对照表维护在 `tests/README.md`，新增功能时同步更新。
 
 ## 技术栈（需求方案规定）
 
@@ -96,7 +96,10 @@
 
 ## 构建、测试与部署
 
-- 尚无构建/测试/部署脚本。引入代码后应：用 Composer 管理依赖；若引入测试框架，按所选工具链默认约定组织（项目当前无既有测试惯例）。
+- 依赖：`composer install`（Composer 2 + PHP 8.3+，`composer.lock` 需提交）。测试框架 PHPUnit 12（require-dev）。
+- 测试：`composer test` 跑全部；`php vendor/bin/phpunit --testsuite unit|integration|feature` 分套件运行。测试库为 `class_app_test`（每次运行自动重建表结构；功能测试自动启动 `php -S 127.0.0.1:8123`）。
+- 数据库初始化：`php scripts/install_db.php`（幂等，只建表）；账号创建：`php scripts/create_admin.php` / `php scripts/create_student.php`。
+- 本机配置：`config/config.local.php`（gitignore，真实凭证只放这里）；通用默认在 `config/config.php`，可被环境变量 `DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASS` 覆盖。
 - 部署目标：Nginx + PHP-FPM，`public/` 为站点根目录，`storage/` 在公开目录之外。
 - 运维要求：定期同时备份 MySQL 与 `storage/courses/`；异地/对象存储备份；监控磁盘空间。
 

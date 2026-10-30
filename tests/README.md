@@ -1,0 +1,30 @@
+# 测试说明
+
+测试分三层，全部通过 `composer test` 运行：
+
+| 套件 | 目录 | 依赖 | 内容 |
+|---|---|---|---|
+| unit | `tests/Unit` | 无 | 纯逻辑：密码哈希、CSRF、输入校验、限流判定 |
+| integration | `tests/Integration` | `class_app_test` | Repository CRUD 与唯一约束、实时权限 SQL、日志写入、AuthService；每用例事务回滚 |
+| feature | `tests/Feature` | `class_app_test` + 内置服务器 | 完整 HTTP 流程：登录/退出/限流、权限复检、CSRF、改密会话失效 |
+
+## 与首版验收标准的对照（需求方案第十一节）
+
+| 验收标准 | 覆盖测试 | 状态 |
+|---|---|---|
+| 1. 管理员和学生账号分表，分别正常登录 | `Feature/AuthFlowTest`、`Integration/AuthServiceTest` | ✅ 已覆盖 |
+| 2. 姓名和学号都一致才能看到课程 | `Integration/CoursePermissionTest`、`Feature/PermissionTest` | ✅ 已覆盖 |
+| 3. 名单导入或注册后无需额外匹配操作 | `Feature/PermissionTest::testRosterGrantAndRevokeTakeEffectImmediatelyOverHttp` | ✅ 已覆盖（名单 Excel 导入属第二阶段） |
+| 4. 学生不能通过直接输入 URL 访问其他课程或文件 | `Feature/PermissionTest::testStudentCannotAccessOtherCourseByDirectUrl` | ✅ 已覆盖（课程级；文件级属第三阶段） |
+| 5. 归档学生不能登录，历史数据保留 | `Feature/AuthFlowTest::testArchivedStudentCannotLogin` | ✅ 已覆盖 |
+| 6. 未发布讲义和草稿作业不对学生可见 | — | ⏳ 第三阶段 |
+| 7. 不允许的文件后缀和超大文件会被拒绝 | — | ⏳ 第三阶段 |
+| 8. 磁盘文件 UUID v7 命名，数据库保留原始文件名 | — | ⏳ 第三阶段 |
+| 9. 学生重复提交后教师看到最新有效提交 | — | ⏳ 第三阶段 |
+| 10. 未注册但列入名单的学生出现在未提交名单 | — | ⏳ 第四阶段 |
+| 11. Excel 导出人数与页面统计一致 | — | ⏳ 第四阶段 |
+| 12. ZIP 包含全部有效提交，文件名不冲突 | — | ⏳ 第四阶段 |
+| 13. 登录和密码操作均有日志，日志不含密码 | `Integration/AuthServiceTest::testAuthLogsNeverContainPassword`、`Integration/LogRepositoryTest` | ✅ 已覆盖 |
+| 14. 课程归档后历史可查、不能继续提交 | `Integration/CoursePermissionTest::testArchivedCourseInvisibleToStudent`（提交限制属第三阶段） | 🔶 部分覆盖 |
+
+新增功能时同步更新本对照表。

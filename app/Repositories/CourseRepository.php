@@ -1,0 +1,105 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Repositories;
+
+use App\Support\Database;
+use PDO;
+
+final class CourseRepository
+{
+    private function db(): PDO
+    {
+        return Database::pdo();
+    }
+
+    public function create(string $name, ?string $code, string $term, ?string $description): int
+    {
+        $stmt = $this->db()->prepare(
+            'INSERT INTO courses (name, code, term, description) VALUES (:name, :code, :term, :description)'
+        );
+        $stmt->execute([
+            'name' => $name,
+            'code' => $code === '' ? null : $code,
+            'term' => $term,
+            'description' => $description === '' ? null : $description,
+        ]);
+        return (int) $this->db()->lastInsertId();
+    }
+
+    public function update(int $id, string $name, ?string $code, string $term, ?string $description): void
+    {
+        $stmt = $this->db()->prepare(
+            'UPDATE courses SET name = :name, code = :code, term = :term, description = :description WHERE id = :id'
+        );
+        $stmt->execute([
+            'name' => $name,
+            'code' => $code === '' ? null : $code,
+            'term' => $term,
+            'description' => $description === '' ? null : $description,
+            'id' => $id,
+        ]);
+    }
+
+    public function archive(int $id): void
+    {
+        $stmt = $this->db()->prepare("UPDATE courses SET status = 'archived' WHERE id = :id");
+        $stmt->execute(['id' => $id]);
+    }
+
+    public function findById(int $id): ?array
+    {
+        $stmt = $this->db()->prepare('SELECT * FROM courses WHERE id = :id LIMIT 1');
+        $stmt->execute(['id' => $id]);
+        return $stmt->fetch() ?: null;
+    }
+
+    /** @return array<int, array> 全部课程（教师端） */
+    public function listAll(): array
+    {
+        return $this->db()->query('SELECT * FROM courses ORDER BY id DESC')->fetchAll();
+    }
+
+    /**
+     * 学生课程权限实时查询：学号与姓名必须同时与名单一致，且课程未归档。
+     * 名单变动后无需任何额外操作，下次查询即时生效。
+     *
+     * @return array<int, array>
+     */
+    public function listActiveByStudent(string $studentNo, string $studentName): array
+    {
+        $stmt = $this->db()->prepare(
+            'SELECT c.*
+             FROM courses c
+             INNER JOIN course_roster r ON r.course_id = c.id
+             WHERE r.student_no = :student_no
+               AND r.name = :student_name
+               AND c.status = \'active\'
+             ORDER BY c.id DESC'
+        );
+        $stmt->execute(['student_no' => $studentNo, 'student_name' => $studentName]);
+        return $stmt->fetchAll();
+    }
+
+    /** 服务端权限复检：学生是否能访问指定课程 */
+    public function studentCanAccess(int $courseId, string $studentNo, string $studentName): bool
+    {
+        $stmt = $this->db()->prepare(
+            'SELECT 1
+             FROM courses c
+             INNER JOIN course_roster r ON r.course_id = c.id
+             WHERE c.id = :course_id
+               AND r.student_no = :student_no
+               AND r.name = :student_name
+               AND c.status = \'active\'
+             LIMIT 1'
+        );
+        $stmt->execute([
+            'course_id' => $courseId,
+            'student_no' => $studentNo,
+            'student_name' => $studentName,
+        ]);
+        return (bool) $stmt->fetchColumn();
+    }
+}

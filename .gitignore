@@ -1,6 +1,5 @@
-# Composer 依赖
+# Composer 依赖（composer.lock 作为应用需提交，保证部署可复现）
 vendor/
-composer.lock
 
 # 私有上传文件与临时文件（禁止入库）
 storage/
@@ -11,8 +10,10 @@ config/*.local.php
 .env
 .env.*
 
-# 日志
+# 日志与测试缓存
 *.log
+.phpunit.cache/
+.phpunit.result.cache
 
 # IDE / 系统杂项
 .idea/
