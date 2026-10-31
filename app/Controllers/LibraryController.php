@@ -427,12 +427,19 @@ final class LibraryController extends BaseController
                 return $meta['original_name'];
             });
         } catch (RuntimeException $e) {
+            if ($this->wantsJson()) {
+                $this->jsonResponse(false, $e->getMessage());
+            }
             Session::flash('error', $e->getMessage());
             redirect('?r=admin/library/assignments/edit&id=' . $assignment['id']);
         }
         $this->logs->addAuditLog('admin', (int) $admin['id'], 'library.attachment_add', 'library_assignment', (string) $assignment['id'], $originalName, $this->ip());
 
-        Session::flash('success', '附件已添加。');
+        $message = "附件《{$originalName}》已添加。";
+        if ($this->wantsJson()) {
+            $this->jsonResponse(true, $message, '?r=admin/library/assignments/edit&id=' . $assignment['id']);
+        }
+        Session::flash('success', $message);
         redirect('?r=admin/library/assignments/edit&id=' . $assignment['id']);
     }
 
@@ -580,7 +587,10 @@ final class LibraryController extends BaseController
         $this->notFound('导入类型不正确。');
     }
 
-    /** 把课程内的讲义/作业存回备课区根目录（复制业务行、共享 file_id） */
+    /**
+     * 把课程内的讲义/作业存入备课区（复制业务行、共享 file_id）。
+     * 支持选择目标文件夹；同标题冲突时可选择 覆盖（替换既有条目）/ 改名（以新标题新建）/ 放弃。
+     */
     public function saveBack(): void
     {
         $admin = $this->requireUser(AuthService::TYPE_ADMIN);
@@ -588,24 +598,57 @@ final class LibraryController extends BaseController
 
         $type = (string) ($_POST['type'] ?? '');
         $sourceId = (int) ($_POST['id'] ?? 0);
+        $folderId = $this->itemFolderIdFromRequest($type);
+        $onConflict = (string) ($_POST['on_conflict'] ?? '');
+        $newTitle = trim((string) ($_POST['new_title'] ?? ''));
 
         if ($type === 'handout') {
             $handout = $this->handouts->findById($sourceId);
             if ($handout === null) {
                 $this->notFound('讲义不存在。');
             }
-            $id = Database::transaction(fn () => $this->libraryHandouts->create(
-                $handout['title'],
-                $handout['description'] !== null ? (string) $handout['description'] : '',
-                (int) $handout['file_id']
-            ));
-            $this->logs->addAuditLog('admin', (int) $admin['id'], 'library.save_back_handout', 'library_handout', (string) $id, $handout['title'], $this->ip());
-            $message = "已将讲义《{$handout['title']}》存入备课区。";
-            if ($this->wantsJson()) {
-                $this->jsonResponse(true, $message);
+            $redirect = '?r=admin/courses/handouts&id=' . $handout['course_id'];
+            $title = $handout['title'];
+            $existing = $this->libraryHandouts->findByFolderTitle($folderId, $title);
+
+            if ($existing !== null && $onConflict === '') {
+                $this->saveBackConflict("目标文件夹已存在同名课件《{$title}》，请选择覆盖、改名或放弃。", $redirect);
             }
-            Session::flash('success', $message);
-            redirect('?r=admin/courses/handouts&id=' . $handout['course_id']);
+            if ($existing !== null && $onConflict === 'rename') {
+                if ($newTitle === '' || mb_strlen($newTitle) > 200) {
+                    $this->saveBackFail('请填写新标题（不超过 200 字）。', $redirect);
+                }
+                if ($this->libraryHandouts->findByFolderTitle($folderId, $newTitle) !== null) {
+                    $this->saveBackFail("目标文件夹已存在《{$newTitle}》，请换一个标题。", $redirect);
+                }
+                $title = $newTitle;
+                $existing = null;
+            }
+
+            if ($existing !== null) {
+                // 覆盖：用课程侧内容替换既有备课区条目，旧文件引用计数回收
+                $this->storage->transactional(function () use ($existing, $handout, $title) {
+                    $oldPath = Database::transaction(function () use ($existing, $handout, $title) {
+                        $this->libraryHandouts->update((int) $existing['id'], $title, (string) ($handout['description'] ?? ''), $existing['folder_id'] !== null ? (int) $existing['folder_id'] : null);
+                        $this->libraryHandouts->replaceFile((int) $existing['id'], (int) $handout['file_id']);
+                        return $this->files->deleteIfUnused((int) $existing['file_id']);
+                    });
+                    if ($oldPath !== null) {
+                        $this->storage->delete($oldPath);
+                    }
+                });
+                $this->logs->addAuditLog('admin', (int) $admin['id'], 'library.save_back_handout', 'library_handout', (string) $existing['id'], "覆盖：{$title}", $this->ip());
+                $this->saveBackDone("已用课程版本覆盖备课区课件《{$title}》。", $redirect);
+            }
+
+            $id = Database::transaction(fn () => $this->libraryHandouts->create(
+                $title,
+                $handout['description'] !== null ? (string) $handout['description'] : '',
+                (int) $handout['file_id'],
+                $folderId
+            ));
+            $this->logs->addAuditLog('admin', (int) $admin['id'], 'library.save_back_handout', 'library_handout', (string) $id, $title, $this->ip());
+            $this->saveBackDone("已将讲义《{$title}》存入备课区。", $redirect);
         }
 
         if ($type === 'assignment') {
@@ -613,29 +656,106 @@ final class LibraryController extends BaseController
             if ($assignment === null) {
                 $this->notFound('作业不存在。');
             }
-            $id = Database::transaction(function () use ($assignment) {
+            $redirect = '?r=admin/courses/assignments&id=' . $assignment['course_id'];
+            $title = $assignment['title'];
+            $existing = $this->libraryAssignments->findByFolderTitle($folderId, $title);
+
+            if ($existing !== null && $onConflict === '') {
+                $this->saveBackConflict("目标文件夹已存在同名作业《{$title}》，请选择覆盖、改名或放弃。", $redirect);
+            }
+            if ($existing !== null && $onConflict === 'rename') {
+                if ($newTitle === '' || mb_strlen($newTitle) > 200) {
+                    $this->saveBackFail('请填写新标题（不超过 200 字）。', $redirect);
+                }
+                if ($this->libraryAssignments->findByFolderTitle($folderId, $newTitle) !== null) {
+                    $this->saveBackFail("目标文件夹已存在《{$newTitle}》，请换一个标题。", $redirect);
+                }
+                $title = $newTitle;
+                $existing = null;
+            }
+
+            if ($existing !== null) {
+                // 覆盖：字段更新 + 附件整体替换（旧附件引用计数回收）
+                $this->storage->transactional(function () use ($existing, $assignment, $title) {
+                    $oldPaths = Database::transaction(function () use ($existing, $assignment, $title) {
+                        $this->libraryAssignments->update((int) $existing['id'], [
+                            'title' => $title,
+                            'requirements' => $assignment['requirements'],
+                            'allowed_extensions' => $assignment['allowed_extensions'],
+                            'max_file_size' => (int) $assignment['max_file_size'],
+                            'allow_late' => (bool) $assignment['allow_late'],
+                            'folder_id' => $existing['folder_id'] !== null ? (int) $existing['folder_id'] : null,
+                        ]);
+                        $paths = [];
+                        foreach ($this->libraryAssignments->listAttachments((int) $existing['id']) as $att) {
+                            $this->libraryAssignments->removeAttachment((int) $att['id']);
+                            $path = $this->files->deleteIfUnused((int) $att['file_id']);
+                            if ($path !== null) {
+                                $paths[] = $path;
+                            }
+                        }
+                        foreach ($this->attachments->listByAssignment((int) $assignment['id']) as $att) {
+                            $this->libraryAssignments->addAttachment((int) $existing['id'], (int) $att['file_id']);
+                        }
+                        return $paths;
+                    });
+                    foreach ($oldPaths as $path) {
+                        $this->storage->delete($path);
+                    }
+                });
+                $this->logs->addAuditLog('admin', (int) $admin['id'], 'library.save_back_assignment', 'library_assignment', (string) $existing['id'], "覆盖：{$title}", $this->ip());
+                $this->saveBackDone("已用课程版本覆盖备课区作业《{$title}》。", $redirect);
+            }
+
+            $id = Database::transaction(function () use ($assignment, $title, $folderId) {
                 $libraryId = $this->libraryAssignments->create([
-                    'title' => $assignment['title'],
+                    'title' => $title,
                     'requirements' => $assignment['requirements'],
                     'allowed_extensions' => $assignment['allowed_extensions'],
                     'max_file_size' => (int) $assignment['max_file_size'],
                     'allow_late' => (bool) $assignment['allow_late'],
+                    'folder_id' => $folderId,
                 ]);
                 foreach ($this->attachments->listByAssignment((int) $assignment['id']) as $att) {
                     $this->libraryAssignments->addAttachment($libraryId, (int) $att['file_id']);
                 }
                 return $libraryId;
             });
-            $this->logs->addAuditLog('admin', (int) $admin['id'], 'library.save_back_assignment', 'library_assignment', (string) $id, $assignment['title'], $this->ip());
-            $message = "已将作业《{$assignment['title']}》存入备课区。";
-            if ($this->wantsJson()) {
-                $this->jsonResponse(true, $message);
-            }
-            Session::flash('success', $message);
-            redirect('?r=admin/courses/assignments&id=' . $assignment['course_id']);
+            $this->logs->addAuditLog('admin', (int) $admin['id'], 'library.save_back_assignment', 'library_assignment', (string) $id, $title, $this->ip());
+            $this->saveBackDone("已将作业《{$title}》存入备课区。", $redirect);
         }
 
         $this->notFound('类型不正确。');
+    }
+
+    /** 存入备课区：同标题冲突响应（XHR 带 conflict 标记；原生 flash 报错） */
+    private function saveBackConflict(string $message, string $redirect): void
+    {
+        if ($this->wantsJson()) {
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['ok' => false, 'conflict' => true, 'message' => $message], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+        Session::flash('error', $message . '（浏览器未启用 JavaScript：请先在课程中改名后再存，或在备课区手动处理同名条目。）');
+        redirect($redirect);
+    }
+
+    private function saveBackFail(string $message, string $redirect): void
+    {
+        if ($this->wantsJson()) {
+            $this->jsonResponse(false, $message);
+        }
+        Session::flash('error', $message);
+        redirect($redirect);
+    }
+
+    private function saveBackDone(string $message, string $redirect): void
+    {
+        if ($this->wantsJson()) {
+            $this->jsonResponse(true, $message, $redirect);
+        }
+        Session::flash('success', $message);
+        redirect($redirect);
     }
 
     // ---- 表单与查找辅助 ----

@@ -127,13 +127,20 @@ final class AssignmentController extends BaseController
         $assignment = $this->findAssignment();
         $course = $this->courses->findById((int) $assignment['course_id']);
         if ($course === null || $course['status'] !== 'active') {
+            if ($this->wantsJson()) {
+                $this->jsonResponse(false, '已归档课程不能再发布作业。');
+            }
             Session::flash('error', '已归档课程不能再发布作业。');
             redirect('?r=admin/courses/assignments&id=' . $assignment['course_id']);
         }
         $this->assignments->setStatus((int) $assignment['id'], 'published');
         $this->logs->addAuditLog('admin', (int) $admin['id'], 'assignment.publish', 'assignment', (string) $assignment['id'], $assignment['title'], $this->ip());
 
-        Session::flash('success', "作业《{$assignment['title']}》已发布，学生可见并可提交。");
+        $message = "作业《{$assignment['title']}》已发布，学生可见并可提交。";
+        if ($this->wantsJson()) {
+            $this->jsonResponse(true, $message);
+        }
+        Session::flash('success', $message);
         redirect('?r=admin/courses/assignments&id=' . $assignment['course_id']);
     }
 
@@ -146,7 +153,11 @@ final class AssignmentController extends BaseController
         $this->assignments->setStatus((int) $assignment['id'], 'closed');
         $this->logs->addAuditLog('admin', (int) $admin['id'], 'assignment.close', 'assignment', (string) $assignment['id'], $assignment['title'], $this->ip());
 
-        Session::flash('success', "作业《{$assignment['title']}》已关闭，学生不能再提交（可重新发布恢复）。");
+        $message = "作业《{$assignment['title']}》已关闭，学生不能再提交（可重新发布恢复）。";
+        if ($this->wantsJson()) {
+            $this->jsonResponse(true, $message);
+        }
+        Session::flash('success', $message);
         redirect('?r=admin/courses/assignments&id=' . $assignment['course_id']);
     }
 

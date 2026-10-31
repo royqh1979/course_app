@@ -393,6 +393,89 @@ final class LibraryFlowTest extends FeatureTestCase
         $this->assertStringContainsString('请先选择要导入的内容', $back->body);
     }
 
+    public function testSaveBackFolderAndConflictResolution(): void
+    {
+        $courseId = (new CourseRepository())->create('数据结构', null, '', null);
+        $admin = new HttpClient(self::$baseUrl);
+        $this->loginAdmin($admin);
+        $page = $admin->get('/?r=admin/courses/handouts&id=' . $courseId);
+        $csrf = $page->csrfToken() ?? '';
+        $admin->upload('/?r=admin/handouts/store', 'file', $this->makePdf(), '冲突A.pdf', [
+            '_csrf' => $csrf,
+            'course_id' => (string) $courseId,
+            'title' => '冲突测试A',
+        ]);
+        $handout = (new HandoutRepository())->listByCourse($courseId)[0];
+        $folders = new \App\Repositories\LibraryFolderRepository();
+        $folderId = $folders->create(null, '第1章', 'handout');
+        $lib = new LibraryHandoutRepository();
+
+        $admin->xhr = true;
+        // 1) XHR 存入指定文件夹
+        $res = $admin->upload('/?r=admin/library/save-back', 'ignored', $this->makePdf(), 'x.pdf', [
+            '_csrf' => $csrf, 'type' => 'handout', 'id' => (string) $handout['id'], 'folder_id' => (string) $folderId,
+        ]);
+        $json = json_decode($res->body, true);
+        $this->assertTrue($json['ok']);
+        $items = $lib->listByFolder($folderId);
+        $this->assertCount(1, $items);
+        $firstId = (int) $items[0]['id'];
+
+        // 2) 同名再存同文件夹 → 冲突 JSON
+        $res = $admin->upload('/?r=admin/library/save-back', 'ignored', $this->makePdf(), 'x.pdf', [
+            '_csrf' => $csrf, 'type' => 'handout', 'id' => (string) $handout['id'], 'folder_id' => (string) $folderId,
+        ]);
+        $json = json_decode($res->body, true);
+        $this->assertFalse($json['ok']);
+        $this->assertTrue($json['conflict'], '同名冲突须返回 conflict 标记');
+
+        // 3) 覆盖 → 复用既有条目（同 id）
+        $res = $admin->upload('/?r=admin/library/save-back', 'ignored', $this->makePdf(), 'x.pdf', [
+            '_csrf' => $csrf, 'type' => 'handout', 'id' => (string) $handout['id'], 'folder_id' => (string) $folderId,
+            'on_conflict' => 'overwrite',
+        ]);
+        $json = json_decode($res->body, true);
+        $this->assertTrue($json['ok']);
+        $items = $lib->listByFolder($folderId);
+        $this->assertCount(1, $items);
+        $this->assertSame($firstId, (int) $items[0]['id'], '覆盖应复用既有条目而非新建');
+
+        // 4) 改名存入 → 新条目；再次撞名 → 报错
+        $res = $admin->upload('/?r=admin/library/save-back', 'ignored', $this->makePdf(), 'x.pdf', [
+            '_csrf' => $csrf, 'type' => 'handout', 'id' => (string) $handout['id'], 'folder_id' => (string) $folderId,
+            'on_conflict' => 'rename', 'new_title' => '冲突测试A（2）',
+        ]);
+        $json = json_decode($res->body, true);
+        $this->assertTrue($json['ok']);
+        $this->assertCount(2, $lib->listByFolder($folderId));
+
+        $res = $admin->upload('/?r=admin/library/save-back', 'ignored', $this->makePdf(), 'x.pdf', [
+            '_csrf' => $csrf, 'type' => 'handout', 'id' => (string) $handout['id'], 'folder_id' => (string) $folderId,
+            'on_conflict' => 'rename', 'new_title' => '冲突测试A（2）',
+        ]);
+        $json = json_decode($res->body, true);
+        $this->assertFalse($json['ok']);
+
+        // 5) 作业存入备课区（assignment 树独立、可指定文件夹）
+        $assignmentId = (new \App\Repositories\AssignmentRepository())->create($courseId, [
+            'title' => '作业冲突测试',
+            'requirements' => null,
+            'start_at' => null,
+            'deadline_at' => null,
+            'allowed_extensions' => 'zip',
+            'max_file_size' => 1024,
+            'allow_late' => true,
+        ]);
+        $aFolderId = $folders->create(null, '实验一', 'assignment');
+        $res = $admin->upload('/?r=admin/library/save-back', 'ignored', $this->makePdf(), 'x.pdf', [
+            '_csrf' => $csrf, 'type' => 'assignment', 'id' => (string) $assignmentId, 'folder_id' => (string) $aFolderId,
+        ]);
+        $json = json_decode($res->body, true);
+        $this->assertTrue($json['ok']);
+        $this->assertCount(1, (new \App\Repositories\LibraryAssignmentRepository())->listByFolder($aFolderId));
+        $admin->xhr = false;
+    }
+
     public function testAssignmentTemplatePagesRenderAndCreate(): void
     {
         $admin = new HttpClient(self::$baseUrl);

@@ -334,4 +334,44 @@ final class SubmissionFlowTest extends FeatureTestCase
         $this->assertSame(200, $download->status);
         $this->assertStringContainsString(rawurlencode('题目.zip'), $download->header('content-disposition') ?? '');
     }
+
+    public function testAssignmentAsyncJsonActions(): void
+    {
+        $courseId = (new CourseRepository())->create('数据结构', null, '', null);
+        $assignmentId = $this->makeAssignment($courseId, ['title' => '异步操作作业']);
+        $admin = new HttpClient(self::$baseUrl);
+        $this->loginAdmin($admin);
+        $page = $admin->get('/?r=admin/courses/assignments&id=' . $courseId);
+        $csrf = $page->csrfToken() ?? '';
+
+        $admin->xhr = true;
+        // XHR 发布 → JSON；状态已变
+        $res = $admin->upload('/?r=admin/assignments/publish', 'ignored', $this->makeZip(), 'x.zip', [
+            '_csrf' => $csrf,
+            'id' => (string) $assignmentId,
+        ]);
+        $json = json_decode($res->body, true);
+        $this->assertTrue($json['ok'], 'XHR 发布作业应返回 JSON 成功');
+        $this->assertSame('published', (new AssignmentRepository())->findById($assignmentId)['status']);
+
+        // XHR 关闭 → JSON
+        $res = $admin->upload('/?r=admin/assignments/close', 'ignored', $this->makeZip(), 'x.zip', [
+            '_csrf' => $csrf,
+            'id' => (string) $assignmentId,
+        ]);
+        $json = json_decode($res->body, true);
+        $this->assertTrue($json['ok']);
+        $this->assertSame('closed', (new AssignmentRepository())->findById($assignmentId)['status']);
+
+        // XHR 添加附件 → JSON（批量队列逐条调用即此请求）
+        $zip = $this->makeZip();
+        $res = $admin->upload('/?r=admin/assignments/attachments/add', 'file', $zip, '说明文档.zip', [
+            '_csrf' => $csrf,
+            'id' => (string) $assignmentId,
+        ]);
+        $json = json_decode($res->body, true);
+        $this->assertTrue($json['ok'], 'XHR 添加附件应返回 JSON 成功');
+        $this->assertCount(1, (new \App\Repositories\AttachmentRepository())->listByAssignment($assignmentId));
+        $admin->xhr = false;
+    }
 }

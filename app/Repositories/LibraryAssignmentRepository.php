@@ -76,6 +76,14 @@ final class LibraryAssignmentRepository
         return (int) $this->db()->query('SELECT COUNT(*) FROM library_assignments')->fetchColumn();
     }
 
+    /** 按文件夹 + 标题查重（存入备课区冲突检测用；NULL 文件夹 = 根目录） */
+    public function findByFolderTitle(?int $folderId, string $title): ?array
+    {
+        $stmt = $this->db()->prepare('SELECT * FROM library_assignments WHERE folder_id <=> :folder_id AND title = :title LIMIT 1');
+        $stmt->execute(['folder_id' => $folderId, 'title' => $title]);
+        return $stmt->fetch() ?: null;
+    }
+
     /** @return array<int, array> */
     public function listAll(?Pagination $pagination = null): array
     {

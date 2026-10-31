@@ -55,12 +55,16 @@ $handoutStatus = ['draft' => ['草稿', 'secondary'], 'published' => ['已发布
         <td><?= $handout['published_at'] !== null ? e($handout['published_at']) : '—' ?></td>
         <td class="d-flex gap-1 flex-wrap">
             <a class="btn btn-sm btn-outline-secondary" href="?r=admin/handouts/edit&id=<?= (int) $handout['id'] ?>">编辑</a>
-            <form method="post" action="?r=admin/library/save-back" data-async-action data-async-target="#handout-panel">
-                <?= Csrf::field() ?>
-                <input type="hidden" name="type" value="handout">
-                <input type="hidden" name="id" value="<?= (int) $handout['id'] ?>">
-                <button type="submit" class="btn btn-sm btn-outline-secondary">存入备课区</button>
-            </form>
+            <button type="button" class="btn btn-sm btn-outline-secondary d-none save-back-trigger"
+                    data-sb-type="handout" data-sb-id="<?= (int) $handout['id'] ?>" data-sb-title="<?= e($handout['title']) ?>">存入备课区</button>
+            <noscript>
+                <form method="post" action="?r=admin/library/save-back">
+                    <?= Csrf::field() ?>
+                    <input type="hidden" name="type" value="handout">
+                    <input type="hidden" name="id" value="<?= (int) $handout['id'] ?>">
+                    <button type="submit" class="btn btn-sm btn-outline-secondary">存入备课区</button>
+                </form>
+            </noscript>
             <?php if ($handout['status'] !== 'published' && $course['status'] === 'active'): ?>
             <form method="post" action="?r=admin/handouts/publish" data-async-action data-async-target="#handout-panel">
                 <?= Csrf::field() ?>
@@ -97,4 +101,5 @@ $pageParam = 'page';
 require dirname(__DIR__, 2) . '/_pagination.php';
 ?>
 </div>
-<?php // #handout-panel 结束：发布/下线/删除/存入备课区为无刷新操作，成功后仅替换本面板（保留滚动位置）
+<?php // #handout-panel 结束：发布/下线/删除为无刷新操作，成功后仅替换本面板（保留滚动位置）；存入备课区见下方模态框
+require __DIR__ . '/_saveback_modal.php';

@@ -69,6 +69,14 @@ final class LibraryHandoutRepository
         $stmt->execute(['id' => $id]);
     }
 
+    /** 按文件夹 + 标题查重（存入备课区冲突检测用；NULL 文件夹 = 根目录） */
+    public function findByFolderTitle(?int $folderId, string $title): ?array
+    {
+        $stmt = $this->db()->prepare('SELECT * FROM library_handouts WHERE folder_id <=> :folder_id AND title = :title LIMIT 1');
+        $stmt->execute(['folder_id' => $folderId, 'title' => $title]);
+        return $stmt->fetch() ?: null;
+    }
+
     public function countAll(): int
     {
         return (int) $this->db()->query('SELECT COUNT(*) FROM library_handouts')->fetchColumn();

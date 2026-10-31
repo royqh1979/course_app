@@ -95,14 +95,14 @@ $selectedExtensions = $assignment !== null
                 <li class="list-group-item px-0 text-muted">暂无附件。</li>
                 <?php endif; ?>
             </ul>
-            <form method="post" action="?r=admin/library/attachments/add" enctype="multipart/form-data">
+            <form method="post" action="?r=admin/library/attachments/add" enctype="multipart/form-data" data-upload-batch>
                 <?= Csrf::field() ?>
                 <input type="hidden" name="id" value="<?= (int) $assignment['id'] ?>">
                 <div class="mb-2">
                     <input class="form-control" type="file" name="file"
-                           accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip" required>
+                           accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip" required multiple>
                 </div>
-                <button type="submit" class="btn btn-outline-primary btn-sm">上传附件</button>
+                <button type="submit" class="btn btn-outline-primary btn-sm">上传附件（可多选）</button>
             </form>
         </div>
     </div>

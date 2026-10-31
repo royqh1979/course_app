@@ -65,7 +65,7 @@ $libraryFolders = new LibraryFolderRepository();
 $groups = new GroupRepository();
 
 $authController = new AuthController($auth, $students, $logs);
-$courseController = new CourseController($auth, $courses, $roster, $logs, $handouts, $assignments, $groups);
+$courseController = new CourseController($auth, $courses, $roster, $logs, $handouts, $assignments, $groups, $libraryFolders);
 $rosterController = new RosterController($auth, $roster, $courses, $logs);
 $studentController = new StudentController($auth, $courses, $handouts, $assignments, $attachments, $submissions, $files, $groups);
 $groupController = new GroupController($auth, $groups, $courses);

@@ -11,6 +11,7 @@ $assignmentStatus = ['draft' => ['草稿', 'secondary'], 'published' => ['已发
     <a class="btn btn-sm btn-outline-primary" href="?r=admin/library/import&course_id=<?= (int) $course['id'] ?>&type=assignment">从备课区导入</a>
 </p>
 <?php endif; ?>
+<div id="assignment-panel">
 <div class="table-responsive">
 <table class="table table-sm table-striped align-middle">
     <thead>
@@ -27,21 +28,25 @@ $assignmentStatus = ['draft' => ['草稿', 'secondary'], 'published' => ['已发
             <a class="btn btn-sm btn-outline-secondary" href="?r=admin/assignments/edit&id=<?= (int) $assignment['id'] ?>">编辑</a>
             <a class="btn btn-sm btn-outline-primary" href="?r=admin/assignments/submissions&id=<?= (int) $assignment['id'] ?>">提交/批改</a>
             <a class="btn btn-sm btn-outline-primary" href="?r=admin/assignments/stats&id=<?= (int) $assignment['id'] ?>">统计</a>
-            <form method="post" action="?r=admin/library/save-back">
-                <?= Csrf::field() ?>
-                <input type="hidden" name="type" value="assignment">
-                <input type="hidden" name="id" value="<?= (int) $assignment['id'] ?>">
-                <button type="submit" class="btn btn-sm btn-outline-secondary">存入备课区</button>
-            </form>
+            <button type="button" class="btn btn-sm btn-outline-secondary d-none save-back-trigger"
+                    data-sb-type="assignment" data-sb-id="<?= (int) $assignment['id'] ?>" data-sb-title="<?= e($assignment['title']) ?>">存入备课区</button>
+            <noscript>
+                <form method="post" action="?r=admin/library/save-back">
+                    <?= Csrf::field() ?>
+                    <input type="hidden" name="type" value="assignment">
+                    <input type="hidden" name="id" value="<?= (int) $assignment['id'] ?>">
+                    <button type="submit" class="btn btn-sm btn-outline-secondary">存入备课区</button>
+                </form>
+            </noscript>
             <?php if ($assignment['status'] !== 'published' && $course['status'] === 'active'): ?>
-            <form method="post" action="?r=admin/assignments/publish">
+            <form method="post" action="?r=admin/assignments/publish" data-async-action data-async-target="#assignment-panel">
                 <?= Csrf::field() ?>
                 <input type="hidden" name="id" value="<?= (int) $assignment['id'] ?>">
                 <button type="submit" class="btn btn-sm btn-outline-success">发布</button>
             </form>
             <?php endif; ?>
             <?php if ($assignment['status'] === 'published'): ?>
-            <form method="post" action="?r=admin/assignments/close" onsubmit="return confirm('确认关闭该作业？学生将不能再提交。');">
+            <form method="post" action="?r=admin/assignments/close" data-async-action data-async-target="#assignment-panel" onsubmit="return confirm('确认关闭该作业？学生将不能再提交。');">
                 <?= Csrf::field() ?>
                 <input type="hidden" name="id" value="<?= (int) $assignment['id'] ?>">
                 <button type="submit" class="btn btn-sm btn-outline-danger">关闭</button>
@@ -61,3 +66,7 @@ $route = 'admin/courses/assignments';
 $params = ['id' => (int) $course['id']];
 $pageParam = 'page';
 require dirname(__DIR__, 2) . '/_pagination.php';
+?>
+</div>
+<?php // #assignment-panel 结束：发布/关闭为无刷新操作；存入备课区见下方模态框
+require __DIR__ . '/_saveback_modal.php'; ?>

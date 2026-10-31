@@ -497,6 +497,148 @@
         }, 2500);
     }
 
+    /*
+     * 存入备课区模态框：.save-back-trigger 触发（无 JS 时保持隐藏，noscript 表单兜底）；
+     * 选目标文件夹 → XHR save-back；同标题冲突时提供 覆盖 / 改名存入 / 放弃；
+     * 成功后关闭模态框并刷新对应面板（#handout-panel / #assignment-panel，滚动位置保留）。
+     */
+    function initSaveBack() {
+        if (!window.FormData || !window.XMLHttpRequest) {
+            return;
+        }
+        var modalEl = document.getElementById('saveBackModal');
+        if (!modalEl) {
+            return;
+        }
+        var triggers = document.querySelectorAll('.save-back-trigger');
+        var modal = window.bootstrap && window.bootstrap.Modal ? new window.bootstrap.Modal(modalEl) : null;
+        var current = { type: '', id: '', title: '' };
+
+        function byId(id) {
+            return document.getElementById(id);
+        }
+        function showEl(id) {
+            var node = byId(id);
+            node.className = node.className.replace(/\s*d-none/g, '');
+        }
+        function hideEl(id) {
+            var node = byId(id);
+            if (node.className.indexOf('d-none') === -1) {
+                node.className += ' d-none';
+            }
+        }
+        function setError(msg) {
+            var box = byId('sb-error');
+            if (msg) {
+                box.textContent = msg;
+                showEl('sb-error');
+            } else {
+                box.textContent = '';
+                hideEl('sb-error');
+            }
+        }
+        function close() {
+            if (modal) {
+                modal.hide();
+            }
+        }
+        function open(trigger) {
+            current.type = trigger.getAttribute('data-sb-type');
+            current.id = trigger.getAttribute('data-sb-id');
+            current.title = trigger.getAttribute('data-sb-title');
+            byId('sb-title').textContent = current.title;
+            hideEl('sb-folder-wrap-handout');
+            hideEl('sb-folder-wrap-assignment');
+            showEl('sb-folder-wrap-' + current.type);
+            hideEl('sb-conflict');
+            hideEl('sb-rename-box');
+            setError('');
+            showEl('sb-footer');
+            if (modal) {
+                modal.show();
+            }
+        }
+        function csrfToken() {
+            var input = document.querySelector('input[name="_csrf"]');
+            return input ? input.value : '';
+        }
+        function sendSaveBack(extra) {
+            setError('');
+            var data = new FormData();
+            data.append('_csrf', csrfToken());
+            data.append('type', current.type);
+            data.append('id', current.id);
+            var folderSel = byId('sb-folder-' + current.type);
+            data.append('folder_id', folderSel ? folderSel.value : '');
+            if (extra) {
+                for (var key in extra) {
+                    if (extra.hasOwnProperty(key)) {
+                        data.append(key, extra[key]);
+                    }
+                }
+            }
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '?r=admin/library/save-back', true);
+            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+            xhr.addEventListener('load', function () {
+                var res = null;
+                try {
+                    res = JSON.parse(xhr.responseText);
+                } catch (ignore) {
+                    res = null;
+                }
+                if (res && res.ok) {
+                    close();
+                    refreshPanel(current.type === 'handout' ? '#handout-panel' : '#assignment-panel', res.success);
+                    return;
+                }
+                if (res && res.conflict) {
+                    hideEl('sb-footer');
+                    hideEl('sb-rename-box');
+                    byId('sb-conflict-message').textContent = res.message;
+                    showEl('sb-conflict');
+                    return;
+                }
+                setError((res && (res.message || res.error)) || ('存入失败（HTTP ' + xhr.status + '）'));
+            });
+            xhr.addEventListener('error', function () {
+                setError('网络错误，存入失败');
+            });
+            xhr.send(data);
+        }
+
+        for (var i = 0; i < triggers.length; i++) {
+            triggers[i].className = triggers[i].className.replace(/\s*d-none/g, '');
+            (function (trigger) {
+                trigger.addEventListener('click', function () {
+                    open(trigger);
+                });
+            })(triggers[i]);
+        }
+        var closers = modalEl.querySelectorAll('[data-sb-close]');
+        for (var c = 0; c < closers.length; c++) {
+            (function (btn) {
+                btn.addEventListener('click', close);
+            })(closers[c]);
+        }
+        byId('sb-submit').addEventListener('click', function () {
+            sendSaveBack(null);
+        });
+        byId('sb-overwrite').addEventListener('click', function () {
+            sendSaveBack({ on_conflict: 'overwrite' });
+        });
+        byId('sb-rename-toggle').addEventListener('click', function () {
+            var input = byId('sb-new-title');
+            if (input.value === '') {
+                input.value = current.title + '（2）';
+            }
+            showEl('sb-rename-box');
+        });
+        byId('sb-rename-submit').addEventListener('click', function () {
+            sendSaveBack({ on_conflict: 'rename', new_title: byId('sb-new-title').value });
+        });
+    }
+
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function () {
             init();
@@ -504,6 +646,7 @@
             initBatch();
             initImportBatch();
             initAsyncActions();
+            initSaveBack();
         });
     } else {
         init();
@@ -511,5 +654,6 @@
         initBatch();
         initImportBatch();
         initAsyncActions();
+        initSaveBack();
     }
 })();

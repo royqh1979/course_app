@@ -8,6 +8,7 @@ use App\Repositories\AssignmentRepository;
 use App\Repositories\CourseRepository;
 use App\Repositories\GroupRepository;
 use App\Repositories\HandoutRepository;
+use App\Repositories\LibraryFolderRepository;
 use App\Repositories\LogRepository;
 use App\Repositories\RosterRepository;
 use App\Services\AuthService;
@@ -25,6 +26,7 @@ final class CourseController extends BaseController
         private readonly HandoutRepository $handouts,
         private readonly AssignmentRepository $assignments,
         private readonly GroupRepository $groups,
+        private readonly LibraryFolderRepository $libraryFolders,
     ) {
         parent::__construct($auth);
     }
@@ -231,6 +233,29 @@ final class CourseController extends BaseController
                 'roster' => $this->roster->countByCourse($id),
                 'groups' => $this->groups->countByCourse($id),
             ],
+            // 存入备课区模态框：两类型文件夹下拉（扁平缩进）
+            'saveBackFolderOptions' => [
+                'handout' => $this->folderOptions('handout'),
+                'assignment' => $this->folderOptions('assignment'),
+            ],
         ];
+    }
+
+    /** 该类型全部文件夹的扁平缩进列表（select 用）：[id, name, depth] */
+    private function folderOptions(string $type): array
+    {
+        $byParent = [];
+        foreach ($this->libraryFolders->listByType($type) as $folder) {
+            $byParent[$folder['parent_id'] ?? 0][] = $folder;
+        }
+        $options = [];
+        $walk = function (?int $parentId, int $depth) use (&$walk, &$options, $byParent): void {
+            foreach ($byParent[$parentId ?? 0] ?? [] as $folder) {
+                $options[] = ['id' => (int) $folder['id'], 'name' => (string) $folder['name'], 'depth' => $depth];
+                $walk((int) $folder['id'], $depth + 1);
+            }
+        };
+        $walk(null, 1);
+        return $options;
     }
 }
