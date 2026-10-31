@@ -7,7 +7,7 @@ $handoutStatus = ['draft' => ['草稿', 'secondary'], 'published' => ['已发布
 ?>
 <?php if ($course['status'] === 'active'): ?>
 <div class="border rounded p-3 mb-3">
-    <form method="post" action="?r=admin/handouts/store" enctype="multipart/form-data" data-upload-progress class="row g-2 align-items-end">
+    <form method="post" action="?r=admin/handouts/store" enctype="multipart/form-data" data-upload-progress data-upload-batch class="row g-2 align-items-end">
         <?= Csrf::field() ?>
         <input type="hidden" name="course_id" value="<?= (int) $course['id'] ?>">
         <div class="col-md-3">
@@ -21,10 +21,15 @@ $handoutStatus = ['draft' => ['草稿', 'secondary'], 'published' => ['已发布
         <div class="col-md-4">
             <label class="form-label" for="handout_file">文件（doc/docx/ppt/pptx/pdf）</label>
             <input class="form-control" type="file" id="handout_file" name="file" accept=".doc,.docx,.ppt,.pptx,.pdf" required
-                   data-autotitle="#handout_title">
+                   multiple data-autotitle="#handout_title">
         </div>
         <div class="col-md-2">
             <button type="submit" class="btn btn-primary w-100">上传讲义</button>
+        </div>
+        <div class="col-12">
+            <div data-dropzone class="rounded p-3 text-center text-muted small" style="border: 2px dashed #ccc;">
+                批量上传：将多个课件文件拖到此处，或在上方文件框按住 Ctrl/⌘ 多选——每个文件各生成一份讲义草稿
+            </div>
         </div>
     </form>
 </div>

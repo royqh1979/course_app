@@ -201,12 +201,19 @@ final class LibraryController extends BaseController
                 });
             });
         } catch (RuntimeException $e) {
+            if ($this->wantsJson()) {
+                $this->jsonResponse(false, $e->getMessage());
+            }
             Session::flash('error', $e->getMessage());
             redirect('?r=' . self::TYPE_ROUTES['handout'] . ($folderId !== null ? '&folder_id=' . $folderId : ''));
         }
         $this->logs->addAuditLog('admin', (int) $admin['id'], 'library.handout_upload', 'library_handout', (string) $id, $title, $this->ip());
 
-        Session::flash('success', '课件已存入备课区。');
+        $message = "《{$title}》已存入备课区。";
+        if ($this->wantsJson()) {
+            $this->jsonResponse(true, $message, '?r=' . self::TYPE_ROUTES['handout'] . ($folderId !== null ? '&folder_id=' . $folderId : ''));
+        }
+        Session::flash('success', $message);
         redirect('?r=' . self::TYPE_ROUTES['handout'] . ($folderId !== null ? '&folder_id=' . $folderId : ''));
     }
 

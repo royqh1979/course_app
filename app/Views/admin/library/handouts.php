@@ -61,7 +61,7 @@
 <?php endif; ?>
 
 <div class="border rounded p-3 mb-3">
-    <form method="post" action="?r=admin/library/handouts/store" enctype="multipart/form-data" class="row g-2 align-items-end">
+    <form method="post" action="?r=admin/library/handouts/store" enctype="multipart/form-data" data-upload-batch class="row g-2 align-items-end">
         <?= Csrf::field() ?>
         <input type="hidden" name="folder_id" value="<?= $currentFolderId ?? '' ?>">
         <div class="col-md-3">
@@ -75,10 +75,15 @@
         <div class="col-md-4">
             <label class="form-label" for="lib_handout_file">文件（doc/docx/ppt/pptx/pdf）</label>
             <input class="form-control" type="file" id="lib_handout_file" name="file" accept=".doc,.docx,.ppt,.pptx,.pdf" required
-                   data-autotitle="#lib_handout_title">
+                   multiple data-autotitle="#lib_handout_title">
         </div>
         <div class="col-md-2">
             <button type="submit" class="btn btn-primary w-100">上传课件</button>
+        </div>
+        <div class="col-12">
+            <div data-dropzone class="rounded p-3 text-center text-muted small" style="border: 2px dashed #ccc;">
+                批量上传：将多个课件文件拖到此处，或在上方文件框按住 Ctrl/⌘ 多选——每个文件各生成一份课件模板
+            </div>
         </div>
     </form>
 </div>
