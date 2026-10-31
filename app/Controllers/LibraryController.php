@@ -336,10 +336,43 @@ final class LibraryController extends BaseController
             redirect('?r=admin/library/assignments/create');
         }
         $data['folder_id'] = $this->itemFolderIdFromRequest('assignment', true);
-        $id = $this->libraryAssignments->create($data);
+        // 作业行与随表单多附件在同一事务落库；单个附件校验失败不中断创建
+        [$id, $attached, $failures] = $this->storage->transactional(function () use ($data) {
+            $libraryId = Database::transaction(fn () => $this->libraryAssignments->create($data));
+            $okNames = [];
+            $failNames = [];
+            foreach ($this->normalizedUploads($_FILES['attachments'] ?? []) as $file) {
+                if ($file['error'] === UPLOAD_ERR_NO_FILE) {
+                    continue;
+                }
+                try {
+                    $meta = $this->storage->store(
+                        $file,
+                        'library/assignments/' . $libraryId . '/attachments',
+                        self::ATTACHMENT_EXTENSIONS,
+                        $this->teacherMaxSize()
+                    );
+                    Database::transaction(function () use ($meta, $libraryId) {
+                        $fileId = $this->files->create($meta);
+                        $this->libraryAssignments->addAttachment($libraryId, $fileId);
+                    });
+                    $okNames[] = $meta['original_name'];
+                } catch (RuntimeException $e) {
+                    $failNames[] = $file['name'] . '：' . $e->getMessage();
+                }
+            }
+            return [$libraryId, $okNames, $failNames];
+        });
         $this->logs->addAuditLog('admin', (int) $admin['id'], 'library.assignment_create', 'library_assignment', (string) $id, $data['title'], $this->ip());
 
-        Session::flash('success', '作业已创建，可继续添加附件。');
+        $message = '作业已创建，可继续添加附件。';
+        if ($attached !== []) {
+            $message .= ' 随表单附件 ' . count($attached) . ' 个上传成功。';
+        }
+        if ($failures !== []) {
+            $message .= ' 附件失败 ' . count($failures) . ' 个：' . implode('；', $failures) . '。';
+        }
+        Session::flash('success', $message);
         redirect('?r=admin/library/assignments/edit&id=' . $id);
     }
 
@@ -884,6 +917,22 @@ final class LibraryController extends BaseController
         };
         $walk(null, 1);
         return $options;
+    }
+
+    /** 将 $_FILES['attachments'] 归一化为逐文件数组 */
+    private function normalizedUploads(array $files): array
+    {
+        $out = [];
+        foreach ((array) ($files['name'] ?? []) as $i => $name) {
+            $out[] = [
+                'name' => (string) $name,
+                'type' => (string) ($files['type'][$i] ?? ''),
+                'tmp_name' => (string) ($files['tmp_name'][$i] ?? ''),
+                'error' => (int) ($files['error'][$i] ?? UPLOAD_ERR_NO_FILE),
+                'size' => (int) ($files['size'][$i] ?? 0),
+            ];
+        }
+        return $out;
     }
 
     private function teacherMaxSize(): int

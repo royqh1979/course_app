@@ -11,7 +11,7 @@ $statusText = ['draft' => '草稿', 'published' => '已发布', 'closed' => '已
 
 <div class="row">
     <div class="col-lg-7">
-        <form method="post" action="<?= e($action) ?>">
+        <form method="post" action="<?= e($action) ?>"<?= $assignment === null ? ' enctype="multipart/form-data"' : '' ?>>
             <?= Csrf::field() ?>
             <?php if ($assignment !== null): ?>
                 <input type="hidden" name="id" value="<?= (int) $assignment['id'] ?>">
@@ -72,6 +72,13 @@ $statusText = ['draft' => '草稿', 'published' => '已发布', 'closed' => '已
                     </div>
                 </div>
             </div>
+            <?php if ($assignment === null): ?>
+            <div class="mb-3">
+                <label class="form-label" for="attachments">附件（可选，可一次多选：作业要求、测试数据等）</label>
+                <input class="form-control" type="file" id="attachments" name="attachments[]"
+                       accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip" multiple>
+            </div>
+            <?php endif; ?>
             <button type="submit" class="btn btn-primary">保存</button>
         </form>
     </div>

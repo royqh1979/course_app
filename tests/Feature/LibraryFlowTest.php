@@ -556,4 +556,41 @@ final class LibraryFlowTest extends FeatureTestCase
         $assignments = (new \App\Repositories\AssignmentRepository())->listByCourse($courseId);
         $this->assertSame('doc,docx,ppt,pptx', $assignments[0]['allowed_extensions']);
     }
+
+    public function testLibraryAssignmentCreateWithAttachment(): void
+    {
+        $admin = new HttpClient(self::$baseUrl);
+        $this->loginAdmin($admin);
+        $create = $admin->get('/?r=admin/library/assignments/create');
+        $csrf = $create->csrfToken() ?? '';
+        $pdf = $this->makePdf();
+
+        $boundary = '----T' . bin2hex(random_bytes(6));
+        $body = '';
+        foreach ([
+            '_csrf' => $csrf,
+            'title' => '随建带附件模板作业',
+            'requirements' => '',
+            'max_file_size_mb' => '10',
+            'allow_late' => '1',
+            'folder_id' => '',
+        ] as $name => $value) {
+            $body .= "--{$boundary}\r\nContent-Disposition: form-data; name=\"{$name}\"\r\n\r\n{$value}\r\n";
+        }
+        $body .= "--{$boundary}\r\nContent-Disposition: form-data; name=\"allowed_groups[]\"\r\n\r\nzip\r\n";
+        $body .= "--{$boundary}\r\nContent-Disposition: form-data; name=\"attachments[]\"; filename=\"作业要求.pdf\"\r\n"
+            . "Content-Type: application/pdf\r\n\r\n" . file_get_contents($pdf) . "\r\n";
+        $body .= "--{$boundary}--\r\n";
+        $res = $admin->request('POST', '/?r=admin/library/assignments/store', null, $body, "multipart/form-data; boundary={$boundary}");
+
+        $this->assertSame(302, $res->status);
+        $list = (new \App\Repositories\LibraryAssignmentRepository())->listAll();
+        $this->assertCount(1, $list);
+        $edit = $admin->get('/?r=admin/library/assignments/edit&id=' . $list[0]['id']);
+        $this->assertSame(200, $edit->status);
+        $this->assertStringContainsString('作业要求.pdf', $edit->body, '新建时上传的附件在编辑页可见');
+        $atts = (new \App\Repositories\LibraryAssignmentRepository())->listAttachments((int) $list[0]['id']);
+        $this->assertCount(1, $atts);
+        $this->assertSame(200, $admin->get('/?r=library/attachment/download&id=' . $atts[0]['id'])->status, '附件可下载');
+    }
 }

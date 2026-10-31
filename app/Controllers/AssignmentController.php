@@ -122,10 +122,43 @@ final class AssignmentController extends BaseController
         if ($data === null) {
             redirect('?r=admin/assignments/create&course_id=' . $course['id']);
         }
-        $id = $this->assignments->create((int) $course['id'], $data);
+        // 作业行与随表单多附件在同一事务落库；单个附件校验失败不中断创建，仅记录失败原因
+        [$id, $attached, $failures] = $this->storage->transactional(function () use ($course, $data) {
+            $assignmentId = Database::transaction(fn () => $this->assignments->create((int) $course['id'], $data));
+            $okNames = [];
+            $failNames = [];
+            foreach ($this->normalizedUploads($_FILES['attachments'] ?? []) as $file) {
+                if ($file['error'] === UPLOAD_ERR_NO_FILE) {
+                    continue;
+                }
+                try {
+                    $meta = $this->storage->store(
+                        $file,
+                        'courses/' . $course['id'] . '/assignments/' . $assignmentId . '/attachments',
+                        self::ATTACHMENT_EXTENSIONS,
+                        $this->teacherMaxSize()
+                    );
+                    Database::transaction(function () use ($meta, $assignmentId) {
+                        $fileId = $this->files->create($meta);
+                        $this->attachments->add((int) $assignmentId, $fileId);
+                    });
+                    $okNames[] = $meta['original_name'];
+                } catch (RuntimeException $e) {
+                    $failNames[] = $file['name'] . '：' . $e->getMessage();
+                }
+            }
+            return [$assignmentId, $okNames, $failNames];
+        });
         $this->logs->addAuditLog('admin', (int) $admin['id'], 'assignment.create', 'assignment', (string) $id, $data['title'], $this->ip());
 
-        Session::flash('success', '作业已创建（草稿），可继续添加附件，发布后学生才可见。');
+        $message = '作业已创建（草稿），可继续添加附件，发布后学生才可见。';
+        if ($attached !== []) {
+            $message .= ' 随表单附件 ' . count($attached) . ' 个上传成功。';
+        }
+        if ($failures !== []) {
+            $message .= ' 附件失败 ' . count($failures) . ' 个：' . implode('；', $failures) . '。';
+        }
+        Session::flash('success', $message);
         redirect('?r=admin/assignments/edit&id=' . $id);
     }
 
@@ -547,6 +580,22 @@ final class AssignmentController extends BaseController
             $this->notFound('作业不存在。');
         }
         return $assignment;
+    }
+
+    /** 将 $_FILES['attachments'] 归一化为逐文件数组 */
+    private function normalizedUploads(array $files): array
+    {
+        $out = [];
+        foreach ((array) ($files['name'] ?? []) as $i => $name) {
+            $out[] = [
+                'name' => (string) $name,
+                'type' => (string) ($files['type'][$i] ?? ''),
+                'tmp_name' => (string) ($files['tmp_name'][$i] ?? ''),
+                'error' => (int) ($files['error'][$i] ?? UPLOAD_ERR_NO_FILE),
+                'size' => (int) ($files['size'][$i] ?? 0),
+            ];
+        }
+        return $out;
     }
 
     private function teacherMaxSize(): int

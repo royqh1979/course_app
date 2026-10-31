@@ -498,4 +498,52 @@ final class SubmissionFlowTest extends FeatureTestCase
         unlink($xlsxPath);
         unlink($exePath);
     }
+
+    public function testCreateAssignmentWithAttachmentsInOneRequest(): void
+    {
+        $courseId = (new CourseRepository())->create('数据结构', null, '', null);
+        $admin = new HttpClient(self::$baseUrl);
+        $this->loginAdmin($admin);
+        $form = $admin->get('/?r=admin/assignments/create&course_id=' . $courseId);
+        $csrf = $form->csrfToken() ?? '';
+        $zipA = $this->makeZip('作业要求');
+        $zipB = $this->makeZip('测试数据');
+        $exe = tempnam(sys_get_temp_dir(), 'sub_');
+        file_put_contents($exe, 'MZfake');
+
+        $boundary = '----T' . bin2hex(random_bytes(6));
+        $body = '';
+        $fields = [
+            '_csrf' => $csrf,
+            'course_id' => (string) $courseId,
+            'title' => '随建带附件作业',
+            'requirements' => '',
+            'max_file_size_mb' => '20',
+            'allow_late' => '1',
+        ];
+        foreach ($fields as $name => $value) {
+            $body .= "--{$boundary}\r\nContent-Disposition: form-data; name=\"{$name}\"\r\n\r\n{$value}\r\n";
+        }
+        $body .= "--{$boundary}\r\nContent-Disposition: form-data; name=\"allowed_groups[]\"\r\n\r\nzip\r\n";
+        foreach ([[$zipA, '作业要求.zip'], [$zipB, '测试数据.zip'], [$exe, '恶意.exe']] as [$path, $name]) {
+            $body .= "--{$boundary}\r\nContent-Disposition: form-data; name=\"attachments[]\"; filename=\"{$name}\"\r\n"
+                . "Content-Type: application/octet-stream\r\n\r\n" . file_get_contents($path) . "\r\n";
+        }
+        $body .= "--{$boundary}--\r\n";
+        $res = $admin->request('POST', '/?r=admin/assignments/store', null, $body, "multipart/form-data; boundary={$boundary}");
+
+        $this->assertSame(302, $res->status);
+        $assignments = (new AssignmentRepository())->listByCourse($courseId);
+        $this->assertCount(1, $assignments, '作业应随表单创建成功');
+        $atts = (new \App\Repositories\AttachmentRepository())->listByAssignment((int) $assignments[0]['id']);
+        $names = array_column($atts, 'original_name');
+        sort($names);
+        $this->assertSame(['作业要求.zip', '测试数据.zip'], $names, '合法附件就位，exe 被拒绝');
+
+        // 失败原因在随后页面提示
+        $edit = $admin->get('/?r=admin/assignments/edit&id=' . $assignments[0]['id']);
+        $this->assertStringContainsString('附件失败 1 个', $edit->body);
+        $this->assertStringContainsString('恶意.exe', $edit->body);
+        unlink($exe);
+    }
 }
