@@ -74,7 +74,8 @@
         </div>
         <div class="col-md-4">
             <label class="form-label" for="lib_handout_file">文件（doc/docx/ppt/pptx/pdf）</label>
-            <input class="form-control" type="file" id="lib_handout_file" name="file" accept=".doc,.docx,.ppt,.pptx,.pdf" required>
+            <input class="form-control" type="file" id="lib_handout_file" name="file" accept=".doc,.docx,.ppt,.pptx,.pdf" required
+                   data-autotitle="#lib_handout_title">
         </div>
         <div class="col-md-2">
             <button type="submit" class="btn btn-primary w-100">上传课件</button>

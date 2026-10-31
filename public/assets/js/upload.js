@@ -112,9 +112,36 @@
         }
     }
 
+    /*
+     * 标题自动填写（渐进增强）：带 data-autotitle="<标题输入框选择器>" 的文件框，
+     * 选择文件后若目标标题为空，则以文件名（去最后一段扩展名）填入；标题已有内容则不覆盖。
+     */
+    function initAutoTitle() {
+        var inputs = document.querySelectorAll('input[type="file"][data-autotitle]');
+        for (var i = 0; i < inputs.length; i++) {
+            (function (input) {
+                input.addEventListener('change', function () {
+                    var target = document.querySelector(input.getAttribute('data-autotitle'));
+                    if (!target || target.value !== '') {
+                        return;
+                    }
+                    var file = input.files && input.files[0];
+                    if (!file) {
+                        return;
+                    }
+                    target.value = String(file.name).replace(/\.[^.]+$/, '');
+                });
+            })(inputs[i]);
+        }
+    }
+
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
+        document.addEventListener('DOMContentLoaded', function () {
+            init();
+            initAutoTitle();
+        });
     } else {
         init();
+        initAutoTitle();
     }
 })();
