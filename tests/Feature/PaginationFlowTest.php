@@ -91,7 +91,8 @@ final class PaginationFlowTest extends FeatureTestCase
 
         $page2 = $client->get('/?r=admin/students&keyword=2024&page=2');
         $this->assertSame(200, $page2->status);
-        $this->assertStringContainsString('2024001', $page2->body);
+        $this->assertStringContainsString('2024030', $page2->body, '按学号升序，第二页为 2024021–2024030');
+        $this->assertStringNotContainsString('2024001', $page2->body, '筛选条件在第二页仍生效');
         $this->assertStringNotContainsString('2023999', $page2->body, '筛选条件在第二页仍生效');
     }
 
@@ -119,17 +120,17 @@ final class PaginationFlowTest extends FeatureTestCase
         $client->userAgent = self::MOBILE_UA;
         $this->loginAdmin($client);
 
-        // 作业页第一页：最新 20 个作业
+        // 作业页第一页：按标题排序后最前的 20 个（作业01–作业20）
         $page1 = $client->get('/?r=admin/courses/assignments&id=' . $courseId);
         $this->assertSame(200, $page1->status);
-        $this->assertStringContainsString('作业25', $page1->body);
-        $this->assertStringNotContainsString('作业01', $page1->body);
+        $this->assertStringContainsString('作业01', $page1->body);
+        $this->assertStringNotContainsString('作业21', $page1->body);
 
-        // 作业页第二页（page=2）：出现作业01，作业25消失
+        // 作业页第二页（page=2）：按标题排序为 作业21–作业25
         $page = $client->get('/?r=admin/courses/assignments&id=' . $courseId . '&page=2');
         $this->assertSame(200, $page->status);
-        $this->assertStringContainsString('作业01', $page->body);
-        $this->assertStringNotContainsString('作业25', $page->body);
+        $this->assertStringContainsString('作业25', $page->body);
+        $this->assertStringNotContainsString('作业01', $page->body);
 
         // 名单页第一页：最早学号在前
         $page = $client->get('/?r=admin/courses/roster&id=' . $courseId);

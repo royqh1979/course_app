@@ -91,7 +91,7 @@ final class GroupRepository
             'SELECT m.*, st.student_no, st.name
              FROM course_group_members m INNER JOIN students st ON st.id = m.student_id
              WHERE m.group_id = :group_id AND m.status = :status
-             ORDER BY m.id'
+             ORDER BY st.student_no'
         );
         $stmt->execute(['group_id' => $groupId, 'status' => $status]);
         return $stmt->fetchAll();
@@ -174,7 +174,7 @@ final class GroupRepository
              INNER JOIN course_groups g ON g.id = m.group_id
              INNER JOIN students st ON st.id = m.student_id
              WHERE g.course_id = :course_id
-             ORDER BY m.group_id, m.status, m.id'
+             ORDER BY m.group_id, m.status, st.student_no'
         );
         $stmt->execute(['course_id' => $courseId]);
         return $stmt->fetchAll();

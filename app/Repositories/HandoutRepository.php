@@ -95,7 +95,7 @@ final class HandoutRepository
         if ($publishedOnly) {
             $sql .= " AND h.status = 'published'";
         }
-        $sql .= ' ORDER BY h.id DESC';
+        $sql .= ' ORDER BY h.title, h.id';
         if ($pagination !== null) {
             $sql .= ' LIMIT :limit OFFSET :offset';
         }

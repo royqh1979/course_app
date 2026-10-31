@@ -82,7 +82,7 @@ final class LibraryAssignmentRepository
         $sql = 'SELECT la.*,
                        (SELECT COUNT(*) FROM library_assignment_attachments a
                         WHERE a.library_assignment_id = la.id) AS attachment_count
-                FROM library_assignments la ORDER BY la.id DESC';
+                FROM library_assignments la ORDER BY la.title, la.id';
         if ($pagination !== null) {
             $sql .= ' LIMIT :limit OFFSET :offset';
         }
@@ -110,7 +110,7 @@ final class LibraryAssignmentRepository
                         WHERE a.library_assignment_id = la.id) AS attachment_count
                 FROM library_assignments la
                 WHERE la.folder_id <=> :folder_id
-                ORDER BY la.id DESC';
+                ORDER BY la.title, la.id';
         if ($pagination !== null) {
             $sql .= ' LIMIT :limit OFFSET :offset';
         }

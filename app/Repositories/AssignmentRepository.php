@@ -98,7 +98,7 @@ final class AssignmentRepository
         if ($visibleToStudent) {
             $sql .= " AND status IN ('published', 'closed')";
         }
-        $sql .= ' ORDER BY id DESC';
+        $sql .= ' ORDER BY title, id';
         if ($pagination !== null) {
             $sql .= ' LIMIT :limit OFFSET :offset';
         }

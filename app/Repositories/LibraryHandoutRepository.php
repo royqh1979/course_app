@@ -79,7 +79,7 @@ final class LibraryHandoutRepository
     {
         $sql = 'SELECT h.*, f.original_name, f.size
                 FROM library_handouts h INNER JOIN files f ON f.id = h.file_id
-                ORDER BY h.id DESC';
+                ORDER BY h.title, h.id';
         if ($pagination !== null) {
             $sql .= ' LIMIT :limit OFFSET :offset';
         }
@@ -105,7 +105,7 @@ final class LibraryHandoutRepository
         $sql = 'SELECT h.*, f.original_name, f.size
                 FROM library_handouts h INNER JOIN files f ON f.id = h.file_id
                 WHERE h.folder_id <=> :folder_id
-                ORDER BY h.id DESC';
+                ORDER BY h.title, h.id';
         if ($pagination !== null) {
             $sql .= ' LIMIT :limit OFFSET :offset';
         }

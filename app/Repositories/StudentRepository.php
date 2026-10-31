@@ -109,7 +109,7 @@ final class StudentRepository
                        (SELECT COUNT(*) FROM submissions sub WHERE sub.student_id = s.id) AS submission_count
                 FROM students s'
                 . $this->filterWhere($keyword, $status, $unmatchedOnly, $params)
-                . ' ORDER BY s.id DESC';
+                . ' ORDER BY s.student_no, s.id';
 
         if ($pagination !== null) {
             $sql .= ' LIMIT :limit OFFSET :offset';
