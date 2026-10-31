@@ -502,16 +502,32 @@ final class LibraryController extends BaseController
             $this->notFound('课程不存在。');
         }
         if ($course['status'] !== 'active') {
+            if ($this->wantsJson()) {
+                $this->jsonResponse(false, '已归档课程不能再导入。');
+            }
             Session::flash('error', '已归档课程不能再导入。');
             redirect('?r=admin/courses/handouts&id=' . $course['id']);
         }
         $type = (string) ($_POST['type'] ?? '');
-        $templateId = (int) ($_POST['template_id'] ?? 0);
+        // 批量导入由前端队列逐条发起（每次一个 template_id）；template_ids[] 为无 JS 原生提交的兼容字段，仅取第一条
+        $rawIds = $_POST['template_ids'] ?? $_POST['template_id'] ?? 0;
+        $templateId = (int) (is_array($rawIds) ? ($rawIds[0] ?? 0) : $rawIds);
+        if ($templateId <= 0) {
+            if ($this->wantsJson()) {
+                $this->jsonResponse(false, '请先选择要导入的内容。');
+            }
+            Session::flash('error', '请先选择要导入的内容。');
+            redirect('?r=admin/library/import&course_id=' . $course['id'] . '&type=' . $type);
+        }
+        $multiNote = is_array($rawIds) && count($rawIds) > 1 ? '（浏览器未启用 JavaScript，一次仅导入第一个所选条目）' : '';
         $courseRoute = $type === 'assignment' ? 'admin/courses/assignments' : 'admin/courses/handouts';
 
         if ($type === 'handout') {
             $template = $this->libraryHandouts->findById($templateId);
             if ($template === null) {
+                if ($this->wantsJson()) {
+                    $this->jsonResponse(false, '课件不存在。');
+                }
                 $this->notFound('课件不存在。');
             }
             $id = Database::transaction(fn () => $this->handouts->create(
@@ -521,13 +537,20 @@ final class LibraryController extends BaseController
                 (int) $template['file_id']
             ));
             $this->logs->addAuditLog('admin', (int) $admin['id'], 'handout.import', 'course', (string) $course['id'], "备课区课件 {$templateId} → 讲义 {$id}：{$template['title']}", $this->ip());
-            Session::flash('success', "已导入课件《{$template['title']}》，发布后学生可见。");
+            $message = "已导入课件《{$template['title']}》，发布后学生可见。" . $multiNote;
+            if ($this->wantsJson()) {
+                $this->jsonResponse(true, $message, '?r=' . $courseRoute . '&id=' . $course['id']);
+            }
+            Session::flash('success', $message);
             redirect('?r=' . $courseRoute . '&id=' . $course['id']);
         }
 
         if ($type === 'assignment') {
             $template = $this->libraryAssignments->findById($templateId);
             if ($template === null) {
+                if ($this->wantsJson()) {
+                    $this->jsonResponse(false, '作业不存在。');
+                }
                 $this->notFound('作业不存在。');
             }
             $id = Database::transaction(function () use ($course, $template) {
@@ -546,7 +569,11 @@ final class LibraryController extends BaseController
                 return $assignmentId;
             });
             $this->logs->addAuditLog('admin', (int) $admin['id'], 'assignment.import', 'course', (string) $course['id'], "备课区作业 {$templateId} → 作业 {$id}：{$template['title']}", $this->ip());
-            Session::flash('success', "已导入作业《{$template['title']}》，请设置开始/截止时间后发布。");
+            $message = "已导入作业《{$template['title']}》，请设置开始/截止时间后发布。" . $multiNote;
+            if ($this->wantsJson()) {
+                $this->jsonResponse(true, $message, '?r=' . $courseRoute . '&id=' . $course['id']);
+            }
+            Session::flash('success', $message);
             redirect('?r=' . $courseRoute . '&id=' . $course['id']);
         }
 

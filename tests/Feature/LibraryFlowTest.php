@@ -341,6 +341,58 @@ final class LibraryFlowTest extends FeatureTestCase
         $this->assertStringContainsString('课件A', $select->body);
     }
 
+    public function testImportBatchOverHttp(): void
+    {
+        $courseId = (new CourseRepository())->create('数据结构', null, '', null);
+        $admin = new HttpClient(self::$baseUrl);
+        $this->loginAdmin($admin);
+        $first = $this->uploadTemplate($admin, '第一章课件');
+        $second = $this->uploadTemplate($admin, '第二章课件');
+
+        // 导入选择页为复选框，可勾选多项
+        $select = $admin->get('/?r=admin/library/import&course_id=' . $courseId . '&type=handout');
+        $this->assertSame(200, $select->status);
+        $this->assertStringContainsString('template_ids[]', $select->body);
+        $this->assertStringContainsString('data-import-batch', $select->body);
+
+        // XHR 单条导入（批量队列每次一个）返回 JSON
+        $page = $admin->get('/?r=admin/library/import&course_id=' . $courseId . '&type=handout');
+        $admin->xhr = true;
+        $res = $admin->upload('/?r=admin/library/import', 'ignored', $this->makePdf(), 'x.pdf', [
+            '_csrf' => $page->csrfToken() ?? '',
+            'course_id' => (string) $courseId,
+            'type' => 'handout',
+            'template_id' => (string) $first,
+        ]);
+        $admin->xhr = false;
+        $json = json_decode($res->body, true);
+        $this->assertSame(200, $res->status);
+        $this->assertIsArray($json);
+        $this->assertTrue($json['ok'], 'XHR 导入应返回 JSON 成功');
+
+        // 无 JS 原生提交多选：仅导入第一个，并给出提示
+        $admin->post('/?r=admin/library/import', [
+            '_csrf' => $page->csrfToken() ?? '',
+            'course_id' => (string) $courseId,
+            'type' => 'handout',
+            'template_ids' => [(string) $second, (string) $first],
+        ]);
+        $handouts = (new HandoutRepository())->listByCourse($courseId);
+        $this->assertCount(2, $handouts, '原生提交一次仅导入第一个所选条目');
+        $coursePage = $admin->get('/?r=admin/courses/handouts&id=' . $courseId);
+        $this->assertStringContainsString('一次仅导入第一个', $coursePage->body, '无 JS 多选须给出提示');
+
+        // 未选择任何条目：错误提示并回到导入页
+        $empty = $admin->post('/?r=admin/library/import', [
+            '_csrf' => $page->csrfToken() ?? '',
+            'course_id' => (string) $courseId,
+            'type' => 'handout',
+        ]);
+        $this->assertSame(302, $empty->status);
+        $back = $admin->get('/?r=admin/library/import&course_id=' . $courseId . '&type=handout');
+        $this->assertStringContainsString('请先选择要导入的内容', $back->body);
+    }
+
     public function testAssignmentTemplatePagesRenderAndCreate(): void
     {
         $admin = new HttpClient(self::$baseUrl);

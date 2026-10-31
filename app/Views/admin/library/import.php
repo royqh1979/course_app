@@ -3,7 +3,7 @@
     <h1 class="h3 m-0">从备课区导入 — <?= e($course['name']) ?></h1>
     <a class="btn btn-outline-secondary" href="?r=admin/courses/handouts&id=<?= (int) $course['id'] ?>">返回课程</a>
 </div>
-<p class="text-muted">导入后生成课程内的草稿副本，与备课区内容各自独立，互不影响。</p>
+<p class="text-muted">导入后生成课程内的副本，与备课区各自独立，互不影响。可勾选多项一次导入（每个各成一份独立副本）。</p>
 
 <?php
 $items = $type === 'handout' ? $handouts : $assignments;
@@ -41,14 +41,14 @@ $linkBuilder = static fn (?int $folderId): string => '?r=' . $importRoute . ($fo
 <?php if ($items === []): ?>
 <div class="alert alert-info"><?= $type === 'handout' ? '本文件夹暂无可用课件' : '本文件夹暂无可用作业' ?><?= $currentFolderId === null && ($folders !== []) ? '，请从左侧文件夹进入' : '' ?>，也可先到 <a href="?r=<?= e($typeRoutes[$type]) ?>">备课区</a> 添加。</div>
 <?php else: ?>
-<form method="post" action="?r=admin/library/import">
+<form method="post" action="?r=admin/library/import" data-import-batch>
     <?= Csrf::field() ?>
     <input type="hidden" name="course_id" value="<?= (int) $course['id'] ?>">
     <input type="hidden" name="type" value="<?= e($type) ?>">
     <div class="list-group mb-3">
         <?php foreach ($items as $item): ?>
-        <label class="list-group-item d-flex align-items-center gap-2">
-            <input class="form-check-input m-0" type="radio" name="template_id" value="<?= (int) $item['id'] ?>" required>
+        <label class="list-group-item d-flex align-items-center gap-2 flex-wrap">
+            <input class="form-check-input m-0" type="checkbox" name="template_ids[]" value="<?= (int) $item['id'] ?>">
             <span>
                 <strong><?= e($item['title']) ?></strong>
                 <?php if ($type === 'handout'): ?>
@@ -60,7 +60,7 @@ $linkBuilder = static fn (?int $folderId): string => '?r=' . $importRoute . ($fo
         </label>
         <?php endforeach; ?>
     </div>
-    <button type="submit" class="btn btn-primary">导入</button>
+    <button type="submit" class="btn btn-primary">导入所选</button>
 </form>
 <?php endif; ?>
 

@@ -291,15 +291,116 @@
         }
     }
 
+    /*
+     * 备课区批量导入（渐进增强）：form[data-import-batch] 内勾选一个以上条目时，
+     * 串行队列逐条向既有导入端点发 XHR（每次一个 template_id，各成一份独立课程副本），
+     * 在对应条目旁显示进度与结果，全部完成后刷新页面；勾选 ≤1 个时走原生提交。
+     */
+    function bindImportBatch(form) {
+        var boxes = form.querySelectorAll('input[name="template_ids[]"]');
+        if (!boxes.length) {
+            return;
+        }
+        var csrf = form.querySelector('input[name="_csrf"]');
+        var courseId = form.querySelector('input[name="course_id"]');
+        var typeInput = form.querySelector('input[name="type"]');
+
+        function setStatus(box, text, ok) {
+            var label = box.closest ? box.closest('label') : box.parentNode;
+            if (!label) {
+                return;
+            }
+            var status = label.querySelector('.import-status');
+            if (!status) {
+                status = el('div', 'import-status small text-muted w-100', text);
+                label.appendChild(status);
+            }
+            status.firstChild.nodeValue = text;
+            status.className = 'import-status small w-100 ' + (ok === undefined ? 'text-muted' : (ok ? 'text-success' : 'text-danger'));
+        }
+
+        form.addEventListener('submit', function (event) {
+            var checked = [];
+            for (var i = 0; i < boxes.length; i++) {
+                if (boxes[i].checked) {
+                    checked.push(boxes[i]);
+                }
+            }
+            if (checked.length <= 1) {
+                return; // 单个（或零个）走原生提交，由服务端提示
+            }
+            event.preventDefault();
+            var button = form.querySelector('[type="submit"]');
+            if (button) {
+                button.disabled = true;
+            }
+            var index = 0;
+
+            function next() {
+                if (index >= checked.length) {
+                    window.setTimeout(function () {
+                        window.location.reload();
+                    }, 1200);
+                    return;
+                }
+                var box = checked[index];
+                index++;
+                setStatus(box, '⏳ 导入中…');
+                var data = new FormData();
+                data.append('_csrf', csrf ? csrf.value : '');
+                data.append('course_id', courseId ? courseId.value : '');
+                data.append('type', typeInput ? typeInput.value : '');
+                data.append('template_id', box.value);
+
+                var xhr = new XMLHttpRequest();
+                xhr.open('POST', form.getAttribute('action'), true);
+                xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+                xhr.addEventListener('load', function () {
+                    var res = null;
+                    try {
+                        res = JSON.parse(xhr.responseText);
+                    } catch (ignore) {
+                        res = null;
+                    }
+                    if (res && res.ok) {
+                        setStatus(box, '✓ ' + res.success, true);
+                    } else {
+                        setStatus(box, '✗ ' + ((res && res.error) || ('导入失败（HTTP ' + xhr.status + '）')), false);
+                    }
+                    next();
+                });
+                xhr.addEventListener('error', function () {
+                    setStatus(box, '✗ 网络错误，导入失败', false);
+                    next();
+                });
+                xhr.send(data);
+            }
+
+            next();
+        });
+    }
+
+    function initImportBatch() {
+        if (!window.FormData || !window.XMLHttpRequest) {
+            return;
+        }
+        var forms = document.querySelectorAll('form[data-import-batch]');
+        for (var i = 0; i < forms.length; i++) {
+            bindImportBatch(forms[i]);
+        }
+    }
+
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function () {
             init();
             initAutoTitle();
             initBatch();
+            initImportBatch();
         });
     } else {
         init();
         initAutoTitle();
         initBatch();
+        initImportBatch();
     }
 })();
