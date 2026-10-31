@@ -247,4 +247,40 @@ final class HandoutFlowTest extends FeatureTestCase
         $this->assertNull((new FileRepository())->findById($fileId), '引用归零后 files 行删除');
         $this->assertFileDoesNotExist($storageRoot . '/' . $storedPath, '引用归零后磁盘文件删除');
     }
+
+    public function testHandoutActionsReturnJsonOverXhr(): void
+    {
+        $courseId = (new CourseRepository())->create('数据结构', null, '', null);
+        $admin = new HttpClient(self::$baseUrl);
+        $this->loginAdmin($admin);
+        $page = $admin->get('/?r=admin/courses/handouts&id=' . $courseId);
+        $admin->upload('/?r=admin/handouts/store', 'file', $this->makePdf(), '异步操作.pdf', [
+            '_csrf' => $page->csrfToken() ?? '',
+            'course_id' => (string) $courseId,
+            'title' => '异步操作',
+        ]);
+        $handout = (new HandoutRepository())->listByCourse($courseId)[0];
+
+        // 发布（XHR）→ JSON 成功，状态已变
+        $admin->xhr = true;
+        $res = $admin->upload('/?r=admin/handouts/publish', 'ignored', $this->makePdf(), 'x.pdf', [
+            '_csrf' => $page->csrfToken() ?? '',
+            'id' => (string) $handout['id'],
+        ]);
+        $admin->xhr = false;
+        $json = json_decode($res->body, true);
+        $this->assertSame(200, $res->status);
+        $this->assertIsArray($json);
+        $this->assertTrue($json['ok'], 'XHR 发布应返回 JSON 成功');
+        $this->assertSame('published', (new HandoutRepository())->findById((int) $handout['id'])['status']);
+
+        // 无 XHR 头时保持原生跳转行为
+        $page = $admin->get('/?r=admin/courses/handouts&id=' . $courseId);
+        $res = $admin->post('/?r=admin/handouts/offline', [
+            '_csrf' => $page->csrfToken() ?? '',
+            'id' => (string) $handout['id'],
+        ]);
+        $this->assertSame(302, $res->status);
+        $this->assertSame('offline', (new HandoutRepository())->findById((int) $handout['id'])['status']);
+    }
 }

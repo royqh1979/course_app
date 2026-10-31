@@ -390,17 +390,126 @@
         }
     }
 
+    /*
+     * 无刷新行操作（渐进增强）：表单带 data-async-action 时，XHR 提交（服务端返回 JSON），
+     * 成功后静默重取当前页并仅替换 data-async-target 指向的面板——不跳转、保留滚动位置。
+     * 不支持 XHR 时退回原生提交（服务端 flash + 跳转，行为如旧）。
+     * 用事件委托（绑定在 document），面板替换后无需重新绑定。
+     */
+    function initAsyncActions() {
+        if (!window.FormData || !window.XMLHttpRequest) {
+            return;
+        }
+        document.addEventListener('submit', function (event) {
+            var form = event.target;
+            if (!form.getAttribute || !form.hasAttribute('data-async-action')) {
+                return;
+            }
+            event.preventDefault();
+            var button = form.querySelector('[type="submit"]');
+            if (button) {
+                button.disabled = true;
+            }
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', form.getAttribute('action'), true);
+            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+            xhr.addEventListener('load', function () {
+                if (button) {
+                    button.disabled = false;
+                }
+                var res = null;
+                try {
+                    res = JSON.parse(xhr.responseText);
+                } catch (ignore) {
+                    res = null;
+                }
+                if (res && res.ok) {
+                    refreshPanel(form.getAttribute('data-async-target'), res.success);
+                } else {
+                    showAsyncResult(form, (res && res.error) || ('操作失败（HTTP ' + xhr.status + '）'), false);
+                }
+            });
+            xhr.addEventListener('error', function () {
+                if (button) {
+                    button.disabled = false;
+                }
+                showAsyncResult(form, '网络错误，操作失败', false);
+            });
+            xhr.send(new FormData(form));
+        });
+    }
+
+    /** 成功后重取当前页并替换目标面板，再显示一条瞬态成功提示 */
+    function refreshPanel(targetSelector, message) {
+        var target = targetSelector ? document.querySelector(targetSelector) : null;
+        if (!target) {
+            window.location.reload();
+            return;
+        }
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', window.location.href, true);
+        xhr.addEventListener('load', function () {
+            if (xhr.status !== 200) {
+                window.location.reload();
+                return;
+            }
+            var doc = null;
+            try {
+                doc = new DOMParser().parseFromString(xhr.responseText, 'text/html');
+            } catch (ignore) {
+                doc = null;
+            }
+            var fresh = doc && doc.querySelector(targetSelector);
+            if (!fresh) {
+                window.location.reload();
+                return;
+            }
+            target.parentNode.replaceChild(document.importNode(fresh, true), target);
+            showAsyncResult(document.querySelector(targetSelector), message, true);
+        });
+        xhr.addEventListener('error', function () {
+            window.location.reload();
+        });
+        xhr.send();
+    }
+
+    /** 在面板（或表单）顶部/旁边插入一条瞬态结果提示 */
+    function showAsyncResult(anchor, text, ok) {
+        var holder = anchor;
+        if (anchor && anchor.hasAttribute && anchor.hasAttribute('data-async-action')) {
+            holder = anchor.parentNode;
+        }
+        var panel = holder && holder.closest ? holder.closest('[id$="-panel"]') : null;
+        var box = document.querySelector('#handout-panel .async-result');
+        var node = el('div', 'alert ' + (ok ? 'alert-success' : 'alert-danger') + ' async-result py-1 px-2 small mb-2', text);
+        if (panel && box && box.parentNode === panel) {
+            panel.replaceChild(node, box);
+        } else if (panel) {
+            panel.insertBefore(node, panel.firstChild);
+        } else if (holder && holder.parentNode) {
+            holder.parentNode.insertBefore(node, holder);
+        }
+        window.setTimeout(function () {
+            if (node.parentNode) {
+                node.parentNode.removeChild(node);
+            }
+        }, 2500);
+    }
+
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function () {
             init();
             initAutoTitle();
             initBatch();
             initImportBatch();
+            initAsyncActions();
         });
     } else {
         init();
         initAutoTitle();
         initBatch();
         initImportBatch();
+        initAsyncActions();
     }
 })();

@@ -169,7 +169,11 @@ final class HandoutController extends BaseController
         $this->handouts->setStatus((int) $handout['id'], 'published');
         $this->logs->addAuditLog('admin', (int) $admin['id'], 'handout.publish', 'handout', (string) $handout['id'], $handout['title'], $this->ip());
 
-        Session::flash('success', "讲义《{$handout['title']}》已发布，学生立即可见。");
+        $message = "讲义《{$handout['title']}》已发布，学生立即可见。";
+        if ($this->wantsJson()) {
+            $this->jsonResponse(true, $message);
+        }
+        Session::flash('success', $message);
         redirect('?r=admin/courses/handouts&id=' . $handout['course_id']);
     }
 
@@ -182,7 +186,11 @@ final class HandoutController extends BaseController
         $this->handouts->setStatus((int) $handout['id'], 'offline');
         $this->logs->addAuditLog('admin', (int) $admin['id'], 'handout.offline', 'handout', (string) $handout['id'], $handout['title'], $this->ip());
 
-        Session::flash('success', "讲义《{$handout['title']}》已下线，学生端不再显示。");
+        $message = "讲义《{$handout['title']}》已下线，学生端不再显示。";
+        if ($this->wantsJson()) {
+            $this->jsonResponse(true, $message);
+        }
+        Session::flash('success', $message);
         redirect('?r=admin/courses/handouts&id=' . $handout['course_id']);
     }
 
@@ -204,7 +212,11 @@ final class HandoutController extends BaseController
         });
         $this->logs->addAuditLog('admin', (int) $admin['id'], 'handout.delete', 'handout', (string) $handout['id'], $handout['title'], $this->ip());
 
-        Session::flash('success', "讲义《{$handout['title']}》已删除。");
+        $message = "讲义《{$handout['title']}》已删除。";
+        if ($this->wantsJson()) {
+            $this->jsonResponse(true, $message);
+        }
+        Session::flash('success', $message);
         redirect('?r=admin/courses/handouts&id=' . $handout['course_id']);
     }
 

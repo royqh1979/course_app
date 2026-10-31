@@ -600,7 +600,11 @@ final class LibraryController extends BaseController
                 (int) $handout['file_id']
             ));
             $this->logs->addAuditLog('admin', (int) $admin['id'], 'library.save_back_handout', 'library_handout', (string) $id, $handout['title'], $this->ip());
-            Session::flash('success', "已将讲义《{$handout['title']}》存入备课区。");
+            $message = "已将讲义《{$handout['title']}》存入备课区。";
+            if ($this->wantsJson()) {
+                $this->jsonResponse(true, $message);
+            }
+            Session::flash('success', $message);
             redirect('?r=admin/courses/handouts&id=' . $handout['course_id']);
         }
 
@@ -623,7 +627,11 @@ final class LibraryController extends BaseController
                 return $libraryId;
             });
             $this->logs->addAuditLog('admin', (int) $admin['id'], 'library.save_back_assignment', 'library_assignment', (string) $id, $assignment['title'], $this->ip());
-            Session::flash('success', "已将作业《{$assignment['title']}》存入备课区。");
+            $message = "已将作业《{$assignment['title']}》存入备课区。";
+            if ($this->wantsJson()) {
+                $this->jsonResponse(true, $message);
+            }
+            Session::flash('success', $message);
             redirect('?r=admin/courses/assignments&id=' . $assignment['course_id']);
         }
 
