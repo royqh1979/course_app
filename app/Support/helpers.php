@@ -27,3 +27,16 @@ function format_size(int $bytes): string
     }
     return $bytes . ' B';
 }
+
+/**
+ * 静态资源 URL（带版本号）：以 public/ 下相对路径引用，追加 ?v=filemtime。
+ * 文件内容一变 URL 即变，浏览器必拉新版，配合 Nginx 对 assets 的 immutable 长缓存，
+ * 既避免陈旧缓存（启发式缓存坑），又保留缓存效率。
+ */
+function asset(string $path): string
+{
+    $path = ltrim($path, '/');
+    $file = dirname(__DIR__, 2) . '/public/' . $path;
+    $version = is_file($file) ? (string) filemtime($file) : '0';
+    return $path . '?v=' . $version;
+}

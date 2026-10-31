@@ -12,7 +12,7 @@ $layoutIsStudent = ($layoutUser['type'] ?? '') === 'student';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= e($title ?? '') ?> - 课程讲义与作业管理系统</title>
-    <link href="assets/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+    <link href="<?= e(asset('assets/vendor/bootstrap/bootstrap.min.css')) ?>" rel="stylesheet">
 </head>
 <body>
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
@@ -56,7 +56,7 @@ $layoutIsStudent = ($layoutUser['type'] ?? '') === 'student';
     <?php endif; ?>
     <?php require $file; ?>
 </main>
-<script src="assets/vendor/bootstrap/bootstrap.bundle.min.js"></script>
-<script src="assets/js/upload.js"></script>
+<script src="<?= e(asset('assets/vendor/bootstrap/bootstrap.bundle.min.js')) ?>"></script>
+<script src="<?= e(asset('assets/js/upload.js')) ?>"></script>
 </body>
 </html>
