@@ -133,6 +133,8 @@ match ([$method, $route]) {
     ['POST', 'admin/assignments/update'] => $assignmentController->update(),
     ['POST', 'admin/assignments/publish'] => $assignmentController->publish(),
     ['POST', 'admin/assignments/close'] => $assignmentController->close(),
+    ['POST', 'admin/assignments/unpublish'] => $assignmentController->unpublish(),
+    ['POST', 'admin/assignments/delete'] => $assignmentController->delete(),
     ['GET', 'admin/assignments/submissions'] => $assignmentController->submissions(),
     ['POST', 'admin/assignments/grade'] => $assignmentController->grade(),
     ['GET', 'admin/assignments/stats'] => $assignmentController->stats(),

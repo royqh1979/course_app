@@ -94,11 +94,12 @@ final class AssignmentRepository
      */
     public function listByCourse(int $courseId, bool $visibleToStudent = false, ?Pagination $pagination = null): array
     {
-        $sql = 'SELECT * FROM assignments WHERE course_id = :course_id';
+        $sql = 'SELECT a.*, (SELECT COUNT(*) FROM submissions s WHERE s.assignment_id = a.id) AS submission_count
+                FROM assignments a WHERE a.course_id = :course_id';
         if ($visibleToStudent) {
-            $sql .= " AND status IN ('published', 'closed')";
+            $sql .= " AND a.status IN ('published', 'closed')";
         }
-        $sql .= ' ORDER BY title, id';
+        $sql .= ' ORDER BY a.title, a.id';
         if ($pagination !== null) {
             $sql .= ' LIMIT :limit OFFSET :offset';
         }
@@ -110,5 +111,11 @@ final class AssignmentRepository
         }
         $stmt->execute();
         return $stmt->fetchAll();
+    }
+
+    public function delete(int $id): void
+    {
+        $stmt = $this->db()->prepare('DELETE FROM assignments WHERE id = :id');
+        $stmt->execute(['id' => $id]);
     }
 }

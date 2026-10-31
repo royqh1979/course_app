@@ -161,6 +161,82 @@ final class AssignmentController extends BaseController
         redirect('?r=admin/courses/assignments&id=' . $assignment['course_id']);
     }
 
+    /** 下线已发布作业（回到草稿）：仅当尚无学生提交；已有提交请使用关闭 */
+    public function unpublish(): void
+    {
+        $admin = $this->requireUser(AuthService::TYPE_ADMIN);
+        $this->requireCsrf();
+
+        $assignment = $this->findAssignment();
+        $redirect = '?r=admin/courses/assignments&id=' . $assignment['course_id'];
+        if ($assignment['status'] !== 'published') {
+            $this->assignmentActionFail('仅已发布作业可下线。', $redirect);
+        }
+        if ($this->submissions->countByAssignment((int) $assignment['id']) > 0) {
+            $this->assignmentActionFail('该作业已有学生提交，不能下线；如需停止收取作业请使用关闭。', $redirect);
+        }
+        $this->assignments->setStatus((int) $assignment['id'], 'draft');
+        $this->logs->addAuditLog('admin', (int) $admin['id'], 'assignment.unpublish', 'assignment', (string) $assignment['id'], $assignment['title'], $this->ip());
+
+        $message = "作业《{$assignment['title']}》已下线为草稿，学生端不再显示。";
+        if ($this->wantsJson()) {
+            $this->jsonResponse(true, $message);
+        }
+        Session::flash('success', $message);
+        redirect($redirect);
+    }
+
+    /** 删除草稿作业（附件一并删除、文件引用计数回收）；已发布/已关闭或有学生提交的作业不可删除 */
+    public function delete(): void
+    {
+        $admin = $this->requireUser(AuthService::TYPE_ADMIN);
+        $this->requireCsrf();
+
+        $assignment = $this->findAssignment();
+        $redirect = '?r=admin/courses/assignments&id=' . $assignment['course_id'];
+        if ($assignment['status'] !== 'draft') {
+            $this->assignmentActionFail('仅草稿状态的作业可删除；已发布/已关闭作业请使用关闭或下线。', $redirect);
+        }
+        if ($this->submissions->countByAssignment((int) $assignment['id']) > 0) {
+            $this->assignmentActionFail('该作业已有学生提交，不能删除。', $redirect);
+        }
+        $this->storage->transactional(function () use ($assignment) {
+            $paths = Database::transaction(function () use ($assignment) {
+                $paths = [];
+                foreach ($this->attachments->listByAssignment((int) $assignment['id']) as $att) {
+                    $this->attachments->remove((int) $att['id']);
+                    $path = $this->files->deleteIfUnused((int) $att['file_id']);
+                    if ($path !== null) {
+                        $paths[] = $path;
+                    }
+                }
+                $this->assignments->delete((int) $assignment['id']);
+                return $paths;
+            });
+            foreach ($paths as $path) {
+                $this->storage->delete($path);
+            }
+        });
+        $this->logs->addAuditLog('admin', (int) $admin['id'], 'assignment.delete', 'assignment', (string) $assignment['id'], $assignment['title'], $this->ip());
+
+        $message = "作业《{$assignment['title']}》已删除。";
+        if ($this->wantsJson()) {
+            $this->jsonResponse(true, $message);
+        }
+        Session::flash('success', $message);
+        redirect($redirect);
+    }
+
+    /** 作业操作失败：XHR 返回 JSON 错误；原生 flash 报错跳回 */
+    private function assignmentActionFail(string $message, string $redirect): void
+    {
+        if ($this->wantsJson()) {
+            $this->jsonResponse(false, $message);
+        }
+        Session::flash('error', $message);
+        redirect($redirect);
+    }
+
     /** 提交情况统计页：以当前课程名单为基准（含未注册学生）；小组作业按组聚合 */
     public function stats(): void
     {

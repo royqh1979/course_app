@@ -374,4 +374,79 @@ final class SubmissionFlowTest extends FeatureTestCase
         $this->assertCount(1, (new \App\Repositories\AttachmentRepository())->listByAssignment($assignmentId));
         $admin->xhr = false;
     }
+
+    public function testDraftDeleteAndUnpublishGuardsOverHttp(): void
+    {
+        $courseId = (new CourseRepository())->create('数据结构', null, '', null);
+        $admin = new HttpClient(self::$baseUrl);
+        $this->loginAdmin($admin);
+
+        // 草稿 + 附件 → 删除成功，附件文件引用计数回收
+        $assignmentId = $this->makeAssignment($courseId, ['title' => '待删除作业']);
+        $page = $admin->get('/?r=admin/courses/assignments&id=' . $courseId);
+        $csrf = $page->csrfToken() ?? '';
+        $admin->upload('/?r=admin/assignments/attachments/add', 'file', $this->makeZip(), '附件说明.zip', [
+            '_csrf' => $csrf,
+            'id' => (string) $assignmentId,
+        ]);
+        $att = (new \App\Repositories\AttachmentRepository())->listByAssignment($assignmentId)[0];
+        $storedPath = (new \App\Repositories\FileRepository())->findById((int) $att['file_id'])['stored_path'];
+        $storageRoot = rtrim((string) App::config('storage_path'), '/\\');
+
+        $res = $admin->post('/?r=admin/assignments/delete', [
+            '_csrf' => $csrf,
+            'id' => (string) $assignmentId,
+        ]);
+        $this->assertSame(302, $res->status);
+        $this->assertNull((new AssignmentRepository())->findById($assignmentId), '草稿作业已删除');
+        $this->assertFileDoesNotExist($storageRoot . '/' . $storedPath, '附件文件随删除回收');
+
+        // 已发布 + 无提交 → 可下线回草稿
+        $a2 = $this->makeAssignment($courseId, ['title' => '可下线作业']);
+        (new AssignmentRepository())->setStatus($a2, 'published');
+        $page = $admin->get('/?r=admin/courses/assignments&id=' . $courseId);
+        $res = $admin->post('/?r=admin/assignments/unpublish', [
+            '_csrf' => $page->csrfToken() ?? '',
+            'id' => (string) $a2,
+        ]);
+        $this->assertSame(302, $res->status);
+        $this->assertSame('draft', (new AssignmentRepository())->findById($a2)['status'], '无提交可下线回草稿');
+
+        // 已发布（无提交）→ 删除仍被拒绝
+        (new AssignmentRepository())->setStatus($a2, 'published');
+        $page = $admin->get('/?r=admin/courses/assignments&id=' . $courseId);
+        $admin->post('/?r=admin/assignments/delete', [
+            '_csrf' => $page->csrfToken() ?? '',
+            'id' => (string) $a2,
+        ]);
+        $this->assertNotNull((new AssignmentRepository())->findById($a2), '已发布作业不可删除');
+        (new AssignmentRepository())->setStatus($a2, 'draft');
+        $admin->post('/?r=admin/assignments/delete', [
+            '_csrf' => $page->csrfToken() ?? '',
+            'id' => (string) $a2,
+        ]);
+        $this->assertNull((new AssignmentRepository())->findById($a2), '下线回草稿后可删除');
+
+        // 已有学生提交 → 下线和删除均被拒绝
+        $a3 = $this->makeAssignment($courseId, ['title' => '有提交作业']);
+        (new AssignmentRepository())->setStatus($a3, 'published');
+        (new RosterRepository())->add($courseId, '2024001', '张三', '');
+        $this->createStudent();
+        $studentId = (int) (new \App\Repositories\StudentRepository())->findByStudentNo('2024001')['id'];
+        $fileId = (new \App\Repositories\FileRepository())->create([
+            'original_name' => 's.zip',
+            'stored_path' => 'tmp/s' . uniqid('', true) . '.zip',
+            'extension' => 'zip',
+            'mime_type' => 'application/zip',
+            'size' => 10,
+            'sha256' => null,
+        ]);
+        (new SubmissionRepository())->insert($a3, $studentId, $fileId);
+        $page = $admin->get('/?r=admin/courses/assignments&id=' . $courseId);
+        $csrf = $page->csrfToken() ?? '';
+        $admin->post('/?r=admin/assignments/unpublish', ['_csrf' => $csrf, 'id' => (string) $a3]);
+        $this->assertSame('published', (new AssignmentRepository())->findById($a3)['status'], '有提交不可下线');
+        $admin->post('/?r=admin/assignments/delete', ['_csrf' => $csrf, 'id' => (string) $a3]);
+        $this->assertSame('published', (new AssignmentRepository())->findById($a3)['status'], '有提交不可删除');
+    }
 }

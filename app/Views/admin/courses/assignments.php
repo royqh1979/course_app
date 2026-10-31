@@ -52,6 +52,20 @@ $assignmentStatus = ['draft' => ['草稿', 'secondary'], 'published' => ['已发
                 <button type="submit" class="btn btn-sm btn-outline-danger">关闭</button>
             </form>
             <?php endif; ?>
+            <?php if ($assignment['status'] === 'published' && (int) $assignment['submission_count'] === 0): ?>
+            <form method="post" action="?r=admin/assignments/unpublish" data-async-action data-async-target="#assignment-panel">
+                <?= Csrf::field() ?>
+                <input type="hidden" name="id" value="<?= (int) $assignment['id'] ?>">
+                <button type="submit" class="btn btn-sm btn-outline-secondary">下线</button>
+            </form>
+            <?php endif; ?>
+            <?php if ($assignment['status'] === 'draft'): ?>
+            <form method="post" action="?r=admin/assignments/delete" data-async-action data-async-target="#assignment-panel" onsubmit="return confirm('确认删除该作业？其附件将一并删除，此操作不可恢复。');">
+                <?= Csrf::field() ?>
+                <input type="hidden" name="id" value="<?= (int) $assignment['id'] ?>">
+                <button type="submit" class="btn btn-sm btn-outline-danger">删除</button>
+            </form>
+            <?php endif; ?>
         </td>
     </tr>
     <?php endforeach; ?>
