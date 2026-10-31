@@ -68,7 +68,7 @@ final class PasswordChangeTest extends FeatureTestCase
         $this->login($client, 'student', '2024001', 'student-pass-123');
 
         $page = $client->get('/?r=password');
-        $this->assertStringContainsString('字母、数字和符号', $page->body, '改密页须有密码要求提示');
+        $this->assertStringContainsString('大写、小写、数字、符号中的至少三类', $page->body, '改密页须有密码要求提示');
         $res = $client->post('/?r=password', [
             '_csrf' => $page->csrfToken() ?? '',
             'old_password' => 'student-pass-123',

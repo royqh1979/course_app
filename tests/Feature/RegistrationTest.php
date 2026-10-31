@@ -33,7 +33,7 @@ final class RegistrationTest extends FeatureTestCase
         $this->assertSame(200, $res->status);
         $this->assertStringContainsString('学生注册', $res->body);
         // 页面须可见密码要求提示（手机端无 title 悬浮，必须有文字说明）
-        $this->assertStringContainsString('字母、数字和符号', $res->body);
+        $this->assertStringContainsString('大写、小写、数字、符号中的至少三类', $res->body);
         // 学号与姓名注册后不可修改的提示须写清楚
         $this->assertStringContainsString('学号与姓名注册后均不可修改', $res->body);
     }

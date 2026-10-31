@@ -12,7 +12,7 @@
                 <label class="form-label" for="new_password">新密码</label>
                 <input class="form-control" id="new_password" name="new_password" type="password" required minlength="8"
                        autocomplete="new-password">
-                <div class="form-text">至少 8 位，须同时包含字母、数字和符号；仅限英文键盘可见字符（不含空格）。</div>
+                <div class="form-text">至少 8 位，须包含大写、小写、数字、符号中的至少三类；仅限英文键盘可见字符（不含空格）。</div>
             </div>
             <div class="mb-3">
                 <label class="form-label" for="confirm_password">确认新密码</label>

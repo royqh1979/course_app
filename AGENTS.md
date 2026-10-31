@@ -109,7 +109,7 @@
 ## 密码与安全要求
 
 - 密码用 `password_hash()`（可指定 `PASSWORD_BCRYPT`）保存，`password_verify()` 验证，必要时 `password_needs_rehash()`；**禁止** MD5/SHA1/裸 SHA256。
-- **新密码强度策略**（`PasswordService::validatePolicy()`，注册/改密/CLI 建号统一执行）：长度 ≥8，**必须同时包含字母、数字、符号**，且只允许 ASCII 可见字符（0x21–0x7E，不含空格/中文）；教师重置学生密码生成的临时随机密码也满足该策略。注册/改密页面须有可见的要求提示文字。
+- **新密码强度策略**（`PasswordService::validatePolicy()`，注册/改密/CLI 建号统一执行）：长度 ≥8；**大写字母、小写字母、数字、符号四类中至少三类**；且只允许 ASCII 可见字符（0x21–0x7E，不含空格/中文）；教师重置学生密码生成的临时随机密码也满足该策略。注册/改密页面须有可见的要求提示文字。
 - 日志中不得记录密码、密码哈希或完整 Session 信息。
 - 全部数据库操作使用 PDO 预处理语句；页面输出做 HTML 转义（防 XSS）；写操作表单加 CSRF 防护。
 - Cookie 设置 `HttpOnly`、`Secure`、适当 `SameSite`；登录成功后重新生成 Session ID；登录失败做限流。
@@ -127,7 +127,7 @@
 
 - 依赖：`composer install`（Composer 2 + PHP 8.3+，`composer.lock` 需提交）。测试框架 PHPUnit 12（require-dev）。
 - 测试：`composer test` 跑全部；`php vendor/bin/phpunit --testsuite unit|integration|feature` 分套件运行。测试库为 `class_app_test`（每次运行自动重建表结构；功能测试自动启动 `php -S 127.0.0.1:8123`）。
-- 数据库初始化：`php scripts/install_db.php`（幂等，只建表）；账号创建：`php scripts/create_admin.php` / `php scripts/create_student.php`。
+- 数据库初始化：`php scripts/install_db.php`（幂等，只建表）；账号创建：`php scripts/create_admin.php` / `php scripts/create_student.php`；改管理员密码：`php scripts/change_admin_password.php <用户名> <新密码>`（校验密码强度策略并使其他会话失效）；备课区文件夹升级：`php scripts/migrate_library_folders.php`（幂等迁移）。
 - 本机配置：`config/config.local.php`（gitignore，真实凭证只放这里）；通用默认在 `config/config.php`，可被环境变量 `DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASS` 覆盖。
 - 部署目标：Nginx + PHP-FPM，`public/` 为站点根目录，`storage/` 在公开目录之外。**云主机部署步骤见 `部署说明.md`**（环境、Nginx/PHP 配置、HTTPS、cron 备份与孤立文件清理、安全清单、冒烟验证）。
 - 运维要求：定期同时备份 MySQL 与 `storage/courses/`；异地/对象存储备份；监控磁盘空间。
