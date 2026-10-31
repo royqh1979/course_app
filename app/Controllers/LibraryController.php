@@ -521,7 +521,7 @@ final class LibraryController extends BaseController
                 (int) $template['file_id']
             ));
             $this->logs->addAuditLog('admin', (int) $admin['id'], 'handout.import', 'course', (string) $course['id'], "模板 {$templateId} → 讲义 {$id}：{$template['title']}", $this->ip());
-            Session::flash('success', "已导入课件《{$template['title']}》（草稿），发布后学生可见。");
+            Session::flash('success', "已导入课件《{$template['title']}》，发布后学生可见。");
             redirect('?r=' . $courseRoute . '&id=' . $course['id']);
         }
 
@@ -546,7 +546,7 @@ final class LibraryController extends BaseController
                 return $assignmentId;
             });
             $this->logs->addAuditLog('admin', (int) $admin['id'], 'assignment.import', 'course', (string) $course['id'], "模板 {$templateId} → 作业 {$id}：{$template['title']}", $this->ip());
-            Session::flash('success', "已导入作业《{$template['title']}》（草稿），请设置开始/截止时间后发布。");
+            Session::flash('success', "已导入作业《{$template['title']}》，请设置开始/截止时间后发布。");
             redirect('?r=' . $courseRoute . '&id=' . $course['id']);
         }
 

@@ -60,7 +60,7 @@ $linkBuilder = static fn (?int $folderId): string => '?r=' . $importRoute . ($fo
         </label>
         <?php endforeach; ?>
     </div>
-    <button type="submit" class="btn btn-primary">导入为草稿</button>
+    <button type="submit" class="btn btn-primary">导入</button>
 </form>
 <?php endif; ?>
 
