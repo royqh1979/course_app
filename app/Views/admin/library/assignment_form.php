@@ -10,7 +10,7 @@ $selectedExtensions = $assignment !== null
     <a class="btn btn-outline-secondary"
        href="?r=<?= e($typeRoute) ?><?= $currentFolderId !== null ? '&folder_id=' . (int) $currentFolderId : '' ?>">返回备课区</a>
 </div>
-<p class="text-muted">模板不设置开始/截止时间，导入课程后再设置。</p>
+<p class="text-muted">作业不设置开始/截止时间，导入课程后再设置。</p>
 
 <div class="row">
     <div class="col-lg-7">
@@ -75,7 +75,7 @@ $selectedExtensions = $assignment !== null
     <?php if ($assignment !== null): ?>
     <div class="col-lg-5 mt-4 mt-lg-0">
         <div class="border rounded p-3">
-            <h2 class="h6">模板附件（<?= count($attachments) ?>）</h2>
+            <h2 class="h6">附件（<?= count($attachments) ?>）</h2>
             <ul class="list-group list-group-flush mb-3">
                 <?php foreach ($attachments as $att): ?>
                 <li class="list-group-item d-flex justify-content-between align-items-center px-0">

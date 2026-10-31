@@ -1,9 +1,9 @@
 <?php use App\Services\Csrf; ?>
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h3 m-0">备课区 · 作业模板</h1>
+    <h1 class="h3 m-0">备课区 · 作业</h1>
     <a class="btn btn-outline-secondary" href="?r=admin/courses">返回课程管理</a>
 </div>
-<p class="text-muted">作业模板库（要求、允许类型、附件），可按文件夹归类。模板不设置开始/截止时间，导入课程后再设置。</p>
+<p class="text-muted">作业库（要求、允许类型、附件），可按文件夹归类。不设置开始/截止时间，导入课程后再设置。</p>
 
 <?php require __DIR__ . '/_library_tabs.php'; ?>
 
@@ -61,7 +61,7 @@
 <?php endif; ?>
 
 <p>
-    <a class="btn btn-primary btn-sm" href="?r=admin/library/assignments/create<?= $currentFolderId !== null ? '&folder_id=' . (int) $currentFolderId : '' ?>">新建作业模板</a>
+    <a class="btn btn-primary btn-sm" href="?r=admin/library/assignments/create<?= $currentFolderId !== null ? '&folder_id=' . (int) $currentFolderId : '' ?>">新建作业</a>
 </p>
 
 <div class="table-responsive">
@@ -79,7 +79,7 @@
         <td class="d-flex gap-1 flex-wrap">
             <a class="btn btn-sm btn-outline-secondary" href="?r=admin/library/assignments/edit&id=<?= (int) $assignment['id'] ?>">编辑</a>
             <form method="post" action="?r=admin/library/assignments/delete"
-                  onsubmit="return confirm('确认删除该模板？已导入的课程副本不受影响。');">
+                  onsubmit="return confirm('确认删除该作业？已导入的课程副本不受影响。');">
                 <?= Csrf::field() ?>
                 <input type="hidden" name="id" value="<?= (int) $assignment['id'] ?>">
                 <button type="submit" class="btn btn-sm btn-outline-danger">删除</button>
@@ -88,7 +88,7 @@
     </tr>
     <?php endforeach; ?>
     <?php if ($assignments === []): ?>
-    <tr><td colspan="5" class="text-muted">本文件夹暂无作业模板。</td></tr>
+    <tr><td colspan="5" class="text-muted">本文件夹暂无作业。</td></tr>
     <?php endif; ?>
     </tbody>
 </table>

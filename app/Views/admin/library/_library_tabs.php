@@ -3,9 +3,9 @@
 ?>
 <ul class="nav nav-tabs mb-3">
     <li class="nav-item">
-        <a class="nav-link <?= $type === 'handout' ? 'active' : '' ?>" href="?r=<?= e($typeRoutes['handout']) ?>">课件模板</a>
+        <a class="nav-link <?= $type === 'handout' ? 'active' : '' ?>" href="?r=<?= e($typeRoutes['handout']) ?>">课件</a>
     </li>
     <li class="nav-item">
-        <a class="nav-link <?= $type === 'assignment' ? 'active' : '' ?>" href="?r=<?= e($typeRoutes['assignment']) ?>">作业模板</a>
+        <a class="nav-link <?= $type === 'assignment' ? 'active' : '' ?>" href="?r=<?= e($typeRoutes['assignment']) ?>">作业</a>
     </li>
 </ul>

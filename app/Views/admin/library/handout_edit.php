@@ -1,6 +1,6 @@
 <?php use App\Services\Csrf; ?>
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h3 m-0">编辑课件模板</h1>
+    <h1 class="h3 m-0">编辑课件</h1>
     <a class="btn btn-outline-secondary"
        href="?r=<?= e($typeRoute) ?><?= $handout['folder_id'] !== null ? '&folder_id=' . (int) $handout['folder_id'] : '' ?>">返回备课区</a>
 </div>
@@ -39,7 +39,7 @@
             <p class="text-muted mb-2">当前文件：<?= e($handout['original_name']) ?>（<?= e(format_size((int) $handout['size'])) ?>）</p>
             <p class="text-muted small">替换只影响之后的导入，已导入的课程副本仍使用原文件。</p>
             <form method="post" action="?r=admin/library/handouts/replace" enctype="multipart/form-data"
-                  onsubmit="return confirm('确认替换模板文件？');">
+                  onsubmit="return confirm('确认替换文件？');">
                 <?= Csrf::field() ?>
                 <input type="hidden" name="id" value="<?= (int) $handout['id'] ?>">
                 <div class="mb-2">

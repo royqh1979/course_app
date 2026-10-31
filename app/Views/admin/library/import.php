@@ -3,7 +3,7 @@
     <h1 class="h3 m-0">从备课区导入 — <?= e($course['name']) ?></h1>
     <a class="btn btn-outline-secondary" href="?r=admin/courses/handouts&id=<?= (int) $course['id'] ?>">返回课程</a>
 </div>
-<p class="text-muted">导入后生成课程内的草稿副本，与模板各自独立，互不影响。</p>
+<p class="text-muted">导入后生成课程内的草稿副本，与备课区内容各自独立，互不影响。</p>
 
 <?php
 $items = $type === 'handout' ? $handouts : $assignments;
@@ -39,7 +39,7 @@ $linkBuilder = static fn (?int $folderId): string => '?r=' . $importRoute . ($fo
 <?php endif; ?>
 
 <?php if ($items === []): ?>
-<div class="alert alert-info">本文件夹暂无可用模板<?= $currentFolderId === null && ($folders !== []) ? '，请从左侧文件夹进入' : '' ?>，也可先到 <a href="?r=<?= e($typeRoutes[$type]) ?>">备课区</a> 添加。</div>
+<div class="alert alert-info"><?= $type === 'handout' ? '本文件夹暂无可用课件' : '本文件夹暂无可用作业' ?><?= $currentFolderId === null && ($folders !== []) ? '，请从左侧文件夹进入' : '' ?>，也可先到 <a href="?r=<?= e($typeRoutes[$type]) ?>">备课区</a> 添加。</div>
 <?php else: ?>
 <form method="post" action="?r=admin/library/import">
     <?= Csrf::field() ?>

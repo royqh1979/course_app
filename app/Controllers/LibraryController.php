@@ -23,7 +23,7 @@ use App\Support\View;
 use RuntimeException;
 
 /**
- * 备课区（课件/作业模板库）：两棵按类型独立的文件夹树（深度 ≤3），条目经编辑归入文件夹。
+ * 备课区（课件/作业库）：两棵按类型独立的文件夹树（深度 ≤3），条目经编辑归入文件夹。
  * 导入课程 = 逻辑快照：复制业务行、共享同一 files 行（file_id 引用）；
  * 模板修改/删除只影响之后的导入，不影响已导入的课程副本。
  */
@@ -89,7 +89,7 @@ final class LibraryController extends BaseController
     private function listPageData(string $type, ?int $folderId, Pagination $pagination): array
     {
         return [
-            'title' => '备课区 · ' . self::TYPE_NAMES[$type] . '模板',
+            'title' => '备课区 · ' . self::TYPE_NAMES[$type],
             'type' => $type,
             'typeRoutes' => self::TYPE_ROUTES,
             'folders' => $this->folders->listByType($type),
@@ -162,7 +162,7 @@ final class LibraryController extends BaseController
 
         $folder = $this->findFolder();
         if ($this->folders->countChildren((int) $folder['id']) > 0 || $this->folders->countItems((int) $folder['id'], $folder['item_type']) > 0) {
-            Session::flash('error', '文件夹非空（含有子文件夹或模板），请先清空后再删除。');
+            Session::flash('error', '文件夹非空（含有子文件夹或条目），请先清空后再删除。');
             redirect('?r=' . self::TYPE_ROUTES[$folder['item_type']] . '&folder_id=' . $folder['id']);
         }
         $this->folders->delete((int) $folder['id']);
@@ -173,7 +173,7 @@ final class LibraryController extends BaseController
             . ($folder['parent_id'] !== null ? '&folder_id=' . (int) $folder['parent_id'] : ''));
     }
 
-    // ---- 课件模板 ----
+    // ---- 课件 ----
 
     public function handoutStore(): void
     {
@@ -221,7 +221,7 @@ final class LibraryController extends BaseController
     {
         $this->requireUser(AuthService::TYPE_ADMIN);
         View::render('admin/library/handout_edit', [
-            'title' => '编辑课件模板',
+            'title' => '编辑课件',
             'handout' => $this->findLibraryHandout(),
             'folderOptions' => $this->folderOptions('handout'),
             'typeRoute' => self::TYPE_ROUTES['handout'],
@@ -243,7 +243,7 @@ final class LibraryController extends BaseController
         $this->libraryHandouts->update((int) $handout['id'], $title, trim((string) ($_POST['description'] ?? '')), $folderId);
         $this->logs->addAuditLog('admin', (int) $admin['id'], 'library.handout_update', 'library_handout', (string) $handout['id'], $title, $this->ip());
 
-        Session::flash('success', '课件模板已保存。');
+        Session::flash('success', '课件已保存。');
         redirect('?r=' . self::TYPE_ROUTES['handout'] . ($folderId !== null ? '&folder_id=' . $folderId : ''));
     }
 
@@ -278,7 +278,7 @@ final class LibraryController extends BaseController
         }
         $this->logs->addAuditLog('admin', (int) $admin['id'], 'library.handout_replace', 'library_handout', (string) $handout['id'], $originalName, $this->ip());
 
-        Session::flash('success', '模板文件已替换（已导入的课程副本不受影响）。');
+        Session::flash('success', '文件已替换（已导入的课程副本不受影响）。');
         redirect('?r=' . self::TYPE_ROUTES['handout']
             . ($handout['folder_id'] !== null ? '&folder_id=' . (int) $handout['folder_id'] : ''));
     }
@@ -302,18 +302,18 @@ final class LibraryController extends BaseController
         });
         $this->logs->addAuditLog('admin', (int) $admin['id'], 'library.handout_delete', 'library_handout', (string) $handout['id'], $handout['title'], $this->ip());
 
-        Session::flash('success', '模板已删除；已导入的课程副本不受影响。');
+        Session::flash('success', '课件已删除；已导入的课程副本不受影响。');
         redirect('?r=' . self::TYPE_ROUTES['handout'] . ($folderId !== null ? '&folder_id=' . $folderId : ''));
     }
 
-    // ---- 作业模板 ----
+    // ---- 作业 ----
 
     public function assignmentCreate(): void
     {
         $this->requireUser(AuthService::TYPE_ADMIN);
         $folderId = $this->itemFolderIdFromRequest('assignment', true);
         View::render('admin/library/assignment_form', [
-            'title' => '新建作业模板',
+            'title' => '新建作业',
             'assignment' => null,
             'attachments' => [],
             'action' => '?r=admin/library/assignments/store',
@@ -337,7 +337,7 @@ final class LibraryController extends BaseController
         $id = $this->libraryAssignments->create($data);
         $this->logs->addAuditLog('admin', (int) $admin['id'], 'library.assignment_create', 'library_assignment', (string) $id, $data['title'], $this->ip());
 
-        Session::flash('success', '作业模板已创建，可继续添加附件。');
+        Session::flash('success', '作业已创建，可继续添加附件。');
         redirect('?r=admin/library/assignments/edit&id=' . $id);
     }
 
@@ -346,7 +346,7 @@ final class LibraryController extends BaseController
         $this->requireUser(AuthService::TYPE_ADMIN);
         $assignment = $this->findLibraryAssignment();
         View::render('admin/library/assignment_form', [
-            'title' => '编辑作业模板',
+            'title' => '编辑作业',
             'assignment' => $assignment,
             'attachments' => $this->libraryAssignments->listAttachments((int) $assignment['id']),
             'action' => '?r=admin/library/assignments/update',
@@ -371,7 +371,7 @@ final class LibraryController extends BaseController
         $this->libraryAssignments->update((int) $assignment['id'], $data);
         $this->logs->addAuditLog('admin', (int) $admin['id'], 'library.assignment_update', 'library_assignment', (string) $assignment['id'], $data['title'], $this->ip());
 
-        Session::flash('success', '作业模板已保存。');
+        Session::flash('success', '作业已保存。');
         redirect('?r=' . self::TYPE_ROUTES['assignment']
             . ($data['folder_id'] !== null ? '&folder_id=' . $data['folder_id'] : ''));
     }
@@ -402,7 +402,7 @@ final class LibraryController extends BaseController
         });
         $this->logs->addAuditLog('admin', (int) $admin['id'], 'library.assignment_delete', 'library_assignment', (string) $assignment['id'], $assignment['title'], $this->ip());
 
-        Session::flash('success', '作业模板已删除；已导入的课程副本不受影响。');
+        Session::flash('success', '作业课件已删除；已导入的课程副本不受影响。');
         redirect('?r=' . self::TYPE_ROUTES['assignment'] . ($folderId !== null ? '&folder_id=' . $folderId : ''));
     }
 
@@ -512,7 +512,7 @@ final class LibraryController extends BaseController
         if ($type === 'handout') {
             $template = $this->libraryHandouts->findById($templateId);
             if ($template === null) {
-                $this->notFound('课件模板不存在。');
+                $this->notFound('课件不存在。');
             }
             $id = Database::transaction(fn () => $this->handouts->create(
                 (int) $course['id'],
@@ -520,7 +520,7 @@ final class LibraryController extends BaseController
                 $template['description'] !== null ? (string) $template['description'] : '',
                 (int) $template['file_id']
             ));
-            $this->logs->addAuditLog('admin', (int) $admin['id'], 'handout.import', 'course', (string) $course['id'], "模板 {$templateId} → 讲义 {$id}：{$template['title']}", $this->ip());
+            $this->logs->addAuditLog('admin', (int) $admin['id'], 'handout.import', 'course', (string) $course['id'], "备课区课件 {$templateId} → 讲义 {$id}：{$template['title']}", $this->ip());
             Session::flash('success', "已导入课件《{$template['title']}》，发布后学生可见。");
             redirect('?r=' . $courseRoute . '&id=' . $course['id']);
         }
@@ -528,7 +528,7 @@ final class LibraryController extends BaseController
         if ($type === 'assignment') {
             $template = $this->libraryAssignments->findById($templateId);
             if ($template === null) {
-                $this->notFound('作业模板不存在。');
+                $this->notFound('作业不存在。');
             }
             $id = Database::transaction(function () use ($course, $template) {
                 $assignmentId = $this->assignments->create((int) $course['id'], [
@@ -545,7 +545,7 @@ final class LibraryController extends BaseController
                 }
                 return $assignmentId;
             });
-            $this->logs->addAuditLog('admin', (int) $admin['id'], 'assignment.import', 'course', (string) $course['id'], "模板 {$templateId} → 作业 {$id}：{$template['title']}", $this->ip());
+            $this->logs->addAuditLog('admin', (int) $admin['id'], 'assignment.import', 'course', (string) $course['id'], "备课区作业 {$templateId} → 作业 {$id}：{$template['title']}", $this->ip());
             Session::flash('success', "已导入作业《{$template['title']}》，请设置开始/截止时间后发布。");
             redirect('?r=' . $courseRoute . '&id=' . $course['id']);
         }
@@ -638,7 +638,7 @@ final class LibraryController extends BaseController
     {
         $handout = $this->libraryHandouts->findById((int) (($_POST['id'] ?? $_GET['id']) ?? 0));
         if ($handout === null) {
-            $this->notFound('课件模板不存在。');
+            $this->notFound('课件不存在。');
         }
         return $handout;
     }
@@ -647,7 +647,7 @@ final class LibraryController extends BaseController
     {
         $assignment = $this->libraryAssignments->findById((int) (($_POST['id'] ?? $_GET['id']) ?? 0));
         if ($assignment === null) {
-            $this->notFound('作业模板不存在。');
+            $this->notFound('作业不存在。');
         }
         return $assignment;
     }

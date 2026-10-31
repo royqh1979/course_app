@@ -1,9 +1,9 @@
 <?php use App\Services\Csrf; ?>
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h3 m-0">备课区 · 课件模板</h1>
+    <h1 class="h3 m-0">备课区 · 课件</h1>
     <a class="btn btn-outline-secondary" href="?r=admin/courses">返回课程管理</a>
 </div>
-<p class="text-muted">课件模板库，可按文件夹归类。导入课程后模板与课程副本各自独立：修改/删除模板不影响已导入的课程，反之亦然。</p>
+<p class="text-muted">课件库，可按文件夹归类。导入课程后两边各自独立：修改/删除备课区内容不影响已导入的课程，反之亦然。</p>
 
 <?php require __DIR__ . '/_library_tabs.php'; ?>
 
@@ -82,7 +82,7 @@
         </div>
         <div class="col-12">
             <div data-dropzone class="rounded p-3 text-center text-muted small" style="border: 2px dashed #ccc;">
-                批量上传：将多个课件文件拖到此处，或在上方文件框按住 Ctrl/⌘ 多选——每个文件各生成一份课件模板
+                批量上传：将多个课件文件拖到此处，或在上方文件框按住 Ctrl/⌘ 多选——每个文件各生成一份课件
             </div>
         </div>
     </form>
@@ -106,7 +106,7 @@
         <td class="d-flex gap-1 flex-wrap">
             <a class="btn btn-sm btn-outline-secondary" href="?r=admin/library/handouts/edit&id=<?= (int) $handout['id'] ?>">编辑</a>
             <form method="post" action="?r=admin/library/handouts/delete"
-                  onsubmit="return confirm('确认删除该模板？已导入的课程副本不受影响。');">
+                  onsubmit="return confirm('确认删除该课件？已导入的课程副本不受影响。');">
                 <?= Csrf::field() ?>
                 <input type="hidden" name="id" value="<?= (int) $handout['id'] ?>">
                 <button type="submit" class="btn btn-sm btn-outline-danger">删除</button>
@@ -115,7 +115,7 @@
     </tr>
     <?php endforeach; ?>
     <?php if ($handouts === []): ?>
-    <tr><td colspan="5" class="text-muted">本文件夹暂无课件模板。</td></tr>
+    <tr><td colspan="5" class="text-muted">本文件夹暂无课件。</td></tr>
     <?php endif; ?>
     </tbody>
 </table>
