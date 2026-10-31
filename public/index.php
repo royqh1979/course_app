@@ -126,6 +126,7 @@ match ([$method, $route]) {
     ['POST', 'admin/handouts/replace'] => $handoutController->replace(),
     ['POST', 'admin/handouts/publish'] => $handoutController->publish(),
     ['POST', 'admin/handouts/offline'] => $handoutController->offline(),
+    ['POST', 'admin/handouts/delete'] => $handoutController->delete(),
     ['GET', 'admin/assignments/create'] => $assignmentController->create(),
     ['POST', 'admin/assignments/store'] => $assignmentController->store(),
     ['GET', 'admin/assignments/edit'] => $assignmentController->edit(),

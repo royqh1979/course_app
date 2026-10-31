@@ -74,6 +74,12 @@ $handoutStatus = ['draft' => ['草稿', 'secondary'], 'published' => ['已发布
                 <button type="submit" class="btn btn-sm btn-outline-danger">下线</button>
             </form>
             <?php endif; ?>
+            <form method="post" action="?r=admin/handouts/delete"
+                  onsubmit="return confirm('<?= $handout['status'] === 'published' ? '该讲义已发布，删除后学生将不可访问，确认删除？' : '确认删除该讲义？此操作不可恢复。' ?>');">
+                <?= Csrf::field() ?>
+                <input type="hidden" name="id" value="<?= (int) $handout['id'] ?>">
+                <button type="submit" class="btn btn-sm btn-outline-danger">删除</button>
+            </form>
         </td>
     </tr>
     <?php endforeach; ?>

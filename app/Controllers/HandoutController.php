@@ -17,7 +17,7 @@ use App\Support\View;
 use RuntimeException;
 
 /**
- * 教师端讲义管理：上传（草稿）、修改标题说明、替换文件、发布/下线。
+ * 教师端讲义管理：上传（草稿）、修改标题说明、替换文件、发布/下线、删除。
  */
 final class HandoutController extends BaseController
 {
@@ -183,6 +183,28 @@ final class HandoutController extends BaseController
         $this->logs->addAuditLog('admin', (int) $admin['id'], 'handout.offline', 'handout', (string) $handout['id'], $handout['title'], $this->ip());
 
         Session::flash('success', "讲义《{$handout['title']}》已下线，学生端不再显示。");
+        redirect('?r=admin/courses/handouts&id=' . $handout['course_id']);
+    }
+
+    /** 删除讲义（任意状态，含已发布）；文件仅当不再被任何引用时删除 */
+    public function delete(): void
+    {
+        $admin = $this->requireUser(AuthService::TYPE_ADMIN);
+        $this->requireCsrf();
+
+        $handout = $this->findHandout();
+        $this->storage->transactional(function () use ($handout) {
+            $oldPath = Database::transaction(function () use ($handout) {
+                $this->handouts->delete((int) $handout['id']);
+                return $this->files->deleteIfUnused((int) $handout['file_id']);
+            });
+            if ($oldPath !== null) {
+                $this->storage->delete($oldPath);
+            }
+        });
+        $this->logs->addAuditLog('admin', (int) $admin['id'], 'handout.delete', 'handout', (string) $handout['id'], $handout['title'], $this->ip());
+
+        Session::flash('success', "讲义《{$handout['title']}》已删除。");
         redirect('?r=admin/courses/handouts&id=' . $handout['course_id']);
     }
 

@@ -58,6 +58,12 @@ final class HandoutRepository
         $stmt->execute(['status' => $status, 'id' => $id]);
     }
 
+    public function delete(int $id): void
+    {
+        $stmt = $this->db()->prepare('DELETE FROM handouts WHERE id = :id');
+        $stmt->execute(['id' => $id]);
+    }
+
     /** 含 files 元数据 */
     public function findById(int $id): ?array
     {

@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Tests\Feature;
 
 use App\Repositories\CourseRepository;
+use App\Repositories\FileRepository;
 use App\Repositories\HandoutRepository;
+use App\Repositories\LibraryHandoutRepository;
 use App\Repositories\RosterRepository;
 use App\Support\App;
 
@@ -194,5 +196,55 @@ final class HandoutFlowTest extends FeatureTestCase
         $this->assertSame('新版.pdf', $updated['original_name']);
         $this->assertFileDoesNotExist($oldPath, '旧文件应在替换成功后清理');
         $this->assertFileExists(rtrim((string) App::config('storage_path'), '/\\') . '/' . $updated['stored_path']);
+    }
+
+    public function testHandoutDeleteOverHttp(): void
+    {
+        $courseId = (new CourseRepository())->create('数据结构', null, '', null);
+        $admin = new HttpClient(self::$baseUrl);
+        $this->loginAdmin($admin);
+
+        // 上传讲义并发布
+        $page = $admin->get('/?r=admin/courses/handouts&id=' . $courseId);
+        $admin->upload('/?r=admin/handouts/store', 'file', $this->makePdf(), '删除测试.pdf', [
+            '_csrf' => $page->csrfToken() ?? '',
+            'course_id' => (string) $courseId,
+            'title' => '待删除讲义',
+        ]);
+        $handouts = new HandoutRepository();
+        $handout = $handouts->listByCourse($courseId)[0];
+        $fileId = (int) $handout['file_id'];
+        $storedPath = (new FileRepository())->findById($fileId)['stored_path'];
+        $storageRoot = rtrim((string) App::config('storage_path'), '/\\');
+        $admin->post('/?r=admin/handouts/publish', [
+            '_csrf' => $page->csrfToken() ?? '',
+            'id' => (string) $handout['id'],
+        ]);
+
+        // 已发布讲义仍可删除；先存回备课区，验证共享文件在删除讲义后保留
+        $admin->post('/?r=admin/library/save-back', [
+            '_csrf' => $page->csrfToken() ?? '',
+            'type' => 'handout',
+            'id' => (string) $handout['id'],
+        ]);
+        $page = $admin->get('/?r=admin/courses/handouts&id=' . $courseId);
+        $res = $admin->post('/?r=admin/handouts/delete', [
+            '_csrf' => $page->csrfToken() ?? '',
+            'id' => (string) $handout['id'],
+        ]);
+        $this->assertSame(302, $res->status);
+        $this->assertSame([], $handouts->listByCourse($courseId), '讲义已删除');
+        $this->assertNotNull((new FileRepository())->findById($fileId), '备课区仍引用该文件，files 行保留');
+        $this->assertFileExists($storageRoot . '/' . $storedPath, '共享文件不得删除');
+
+        // 删除备课区条目后引用归零，文件才被回收
+        $libraryId = (int) (new LibraryHandoutRepository())->listAll()[0]['id'];
+        $page = $admin->get('/?r=admin/library/handouts');
+        $admin->post('/?r=admin/library/handouts/delete', [
+            '_csrf' => $page->csrfToken() ?? '',
+            'id' => (string) $libraryId,
+        ]);
+        $this->assertNull((new FileRepository())->findById($fileId), '引用归零后 files 行删除');
+        $this->assertFileDoesNotExist($storageRoot . '/' . $storedPath, '引用归零后磁盘文件删除');
     }
 }
