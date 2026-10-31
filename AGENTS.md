@@ -39,7 +39,7 @@
 
 三层自动化测试（`composer test`，178 个用例）全部通过，验收标准 14 条全覆盖。
 
-- 需求唯一权威来源：`课程讲义与作业管理系统需求方案.md`（中文，约 550 行）。任何与该文档冲突的实现决定都应先与用户确认。
+- 需求唯一权威来源：`课程讲义与作业管理系统需求方案.md`（中文，约 550 行）。任何与该文档冲突的实现决定都应先与用户确认。实现层面的关键设计/决策与理由见 `设计文档.md`（按主题速查）。
 - 已实现代码按方案的原生 PHP 分层组织：`public/index.php` 前端控制器 + `app/`（Controllers / Repositories / Services / Support / Views）。
 - 数据库：`database/schema.sql` 已建好首版全部 11 张表（含后续阶段用的 `files`、`handouts`、`assignments` 等）。本机 MariaDB 11.5（MySQL 兼容），库名 `class_app`（生产）/ `class_app_test`（测试），账号 `class_app` **无建库权限**，脚本只建表不建库。
 - 已上线部署（2026-10）：本机 Debian 13 + Nginx 1.26 + PHP 8.4-FPM（Apache 已停用保留可回滚），学生入口 `https://www.royqh.net/course_app/`（子目录方式，`/var/www/course_app` 符号链接到 `public/`），Let's Encrypt 证书 certbot 自动续期，每日备份 + 每周孤立文件清理 cron。详见 `部署说明.md` 附录。四个阶段功能已全部完成。
