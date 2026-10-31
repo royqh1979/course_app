@@ -504,4 +504,56 @@ final class LibraryFlowTest extends FeatureTestCase
         $edit = $admin->get('/?r=admin/library/assignments/edit&id=' . $list[0]['id']);
         $this->assertSame(200, $edit->status);
     }
+
+    public function testAssignmentExtensionGroups(): void
+    {
+        $admin = new HttpClient(self::$baseUrl);
+        $this->loginAdmin($admin);
+
+        // 表单渲染 4 个分组勾选项（而非 7 个单扩展名勾选项）
+        $create = $admin->get('/?r=admin/library/assignments/create');
+        $this->assertSame(200, $create->status);
+        $this->assertSame(4, substr_count($create->body, 'name="allowed_groups[]"'));
+        $this->assertStringContainsString('Word（.doc/.docx）', $create->body);
+        $this->assertStringContainsString('Excel（.xls/.xlsx）', $create->body);
+        $this->assertStringContainsString('PPT（.ppt/.pptx）', $create->body);
+        $this->assertStringContainsString('ZIP 压缩包（.zip）', $create->body);
+        $this->assertStringNotContainsString('name="allowed_extensions[]"', $create->body);
+
+        // 备课区作业：按族勾选 excel+zip → 存储具体扩展名
+        $res = $admin->post('/?r=admin/library/assignments/store', [
+            '_csrf' => $create->csrfToken() ?? '',
+            'title' => '分组类型作业',
+            'requirements' => '',
+            'allowed_groups' => ['excel', 'zip'],
+            'max_file_size_mb' => '10',
+            'allow_late' => '1',
+            'folder_id' => '',
+        ]);
+        $this->assertSame(302, $res->status);
+        $list = (new \App\Repositories\LibraryAssignmentRepository())->listAll();
+        $this->assertSame('xls,xlsx,zip', $list[0]['allowed_extensions'], '勾选族应展开为具体扩展名');
+
+        // 编辑页按存储值预选分组
+        $edit = $admin->get('/?r=admin/library/assignments/edit&id=' . $list[0]['id']);
+        $this->assertMatchesRegularExpression('/id="extgrp_excel"(?:(?!>).)*checked/s', $edit->body, 'Excel 族应预选');
+        $this->assertMatchesRegularExpression('/id="extgrp_zip"(?:(?!>).)*checked/s', $edit->body, 'ZIP 族应预选');
+        $this->assertDoesNotMatchRegularExpression('/id="extgrp_word"(?:(?!>).)*checked/s', $edit->body, 'Word 族不应预选');
+
+        // 课程侧作业同样支持 allowed_groups（与旧 allowed_extensions 直传等价兼容）
+        $courseId = (new CourseRepository())->create('数据结构', null, '', null);
+        $form = $admin->get('/?r=admin/assignments/create&course_id=' . $courseId);
+        $res = $admin->post('/?r=admin/assignments/store', [
+            '_csrf' => $form->csrfToken() ?? '',
+            'course_id' => (string) $courseId,
+            'title' => '课程分组类型作业',
+            'requirements' => '',
+            'allowed_groups' => ['word', 'ppt'],
+            'max_file_size_mb' => '20',
+            'allow_late' => '1',
+        ]);
+        $this->assertSame(302, $res->status);
+        $assignments = (new \App\Repositories\AssignmentRepository())->listByCourse($courseId);
+        $this->assertSame('doc,docx,ppt,pptx', $assignments[0]['allowed_extensions']);
+    }
 }

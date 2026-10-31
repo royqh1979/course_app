@@ -43,7 +43,7 @@
                 <?= Csrf::field() ?>
                 <input type="hidden" name="id" value="<?= (int) $handout['id'] ?>">
                 <div class="mb-2">
-                    <input class="form-control" type="file" name="file" accept=".doc,.docx,.ppt,.pptx,.pdf" required>
+                    <input class="form-control" type="file" name="file" accept=".doc,.docx,.ppt,.pptx,.pdf,.zip,.xls,.xlsx" required>
                 </div>
                 <button type="submit" class="btn btn-outline-primary">替换文件</button>
             </form>

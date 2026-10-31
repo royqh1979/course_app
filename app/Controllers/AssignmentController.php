@@ -29,6 +29,46 @@ final class AssignmentController extends BaseController
     public const SUBMIT_EXTENSIONS = ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'zip'];
     private const ATTACHMENT_EXTENSIONS = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'zip'];
 
+    /** 学生提交类型按族分组（表单勾选项）：勾选一族 = 该族全部扩展名 */
+    public const EXTENSION_GROUPS = [
+        'word' => ['doc', 'docx'],
+        'excel' => ['xls', 'xlsx'],
+        'ppt' => ['ppt', 'pptx'],
+        'zip' => ['zip'],
+    ];
+    public const EXTENSION_GROUP_LABELS = [
+        'word' => 'Word（.doc/.docx）',
+        'excel' => 'Excel（.xls/.xlsx）',
+        'ppt' => 'PPT（.ppt/.pptx）',
+        'zip' => 'ZIP 压缩包（.zip）',
+    ];
+
+    /** 勾选的族 → 具体扩展名列表（过滤非法组名） */
+    public static function expandGroups(array $groups): array
+    {
+        $exts = [];
+        foreach ($groups as $group) {
+            $group = (string) $group;
+            if (isset(self::EXTENSION_GROUPS[$group])) {
+                $exts = array_merge($exts, self::EXTENSION_GROUPS[$group]);
+            }
+        }
+        return $exts;
+    }
+
+    /** 已存 csv → 预选族列表（族内任一扩展名在列即勾选，保存后归并全族；旧数据兼容） */
+    public static function selectedGroups(?string $csv): array
+    {
+        $exts = array_filter(array_map('trim', explode(',', (string) $csv)));
+        $selected = [];
+        foreach (self::EXTENSION_GROUPS as $group => $members) {
+            if (array_intersect($members, $exts) !== []) {
+                $selected[] = $group;
+            }
+        }
+        return $selected;
+    }
+
     private readonly FileStorage $storage;
 
     public function __construct(
@@ -58,7 +98,9 @@ final class AssignmentController extends BaseController
             'assignment' => null,
             'attachments' => [],
             'action' => '?r=admin/assignments/store',
-            'submitExtensions' => self::SUBMIT_EXTENSIONS,
+            'extensionGroups' => self::EXTENSION_GROUPS,
+            'extensionGroupLabels' => self::EXTENSION_GROUP_LABELS,
+            'selectedGroups' => [],
         ]);
     }
 
@@ -98,7 +140,9 @@ final class AssignmentController extends BaseController
             'assignment' => $assignment,
             'attachments' => $this->attachments->listByAssignment((int) $assignment['id']),
             'action' => '?r=admin/assignments/update',
-            'submitExtensions' => self::SUBMIT_EXTENSIONS,
+            'extensionGroups' => self::EXTENSION_GROUPS,
+            'extensionGroupLabels' => self::EXTENSION_GROUP_LABELS,
+            'selectedGroups' => self::selectedGroups($assignment['allowed_extensions'] ?? null),
         ]);
     }
 
@@ -454,7 +498,13 @@ final class AssignmentController extends BaseController
 
         $extensions = array_values(array_intersect(
             self::SUBMIT_EXTENSIONS,
-            array_map('strval', (array) ($_POST['allowed_extensions'] ?? []))
+            array_map(
+                'strval',
+                array_merge(
+                    (array) ($_POST['allowed_extensions'] ?? []),
+                    self::expandGroups((array) ($_POST['allowed_groups'] ?? []))
+                )
+            )
         ));
         if ($extensions === []) {
             Session::flash('error', '请至少选择一种允许提交的文件类型。');

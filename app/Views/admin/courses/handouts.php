@@ -19,8 +19,8 @@ $handoutStatus = ['draft' => ['草稿', 'secondary'], 'published' => ['已发布
             <input class="form-control" id="handout_desc" name="description" maxlength="500">
         </div>
         <div class="col-md-4">
-            <label class="form-label" for="handout_file">文件（doc/docx/ppt/pptx/pdf）</label>
-            <input class="form-control" type="file" id="handout_file" name="file" accept=".doc,.docx,.ppt,.pptx,.pdf" required
+            <label class="form-label" for="handout_file">文件（doc/docx/ppt/pptx/pdf/zip/xls/xlsx）</label>
+            <input class="form-control" type="file" id="handout_file" name="file" accept=".doc,.docx,.ppt,.pptx,.pdf,.zip,.xls,.xlsx" required
                    multiple data-autotitle="#handout_title">
         </div>
         <div class="col-md-2">

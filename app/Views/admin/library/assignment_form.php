@@ -1,9 +1,5 @@
 <?php
 use App\Services\Csrf;
-
-$selectedExtensions = $assignment !== null
-    ? explode(',', (string) $assignment['allowed_extensions'])
-    : $submitExtensions;
 ?>
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h3 m-0"><?= e($title) ?></h1>
@@ -31,12 +27,12 @@ $selectedExtensions = $assignment !== null
             <div class="mb-3">
                 <span class="form-label d-block">允许提交的文件类型 *</span>
                 <div class="d-flex flex-wrap gap-3">
-                    <?php foreach ($submitExtensions as $ext): ?>
+                    <?php foreach ($extensionGroups as $group => $exts): ?>
                     <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="ext_<?= e($ext) ?>"
-                               name="allowed_extensions[]" value="<?= e($ext) ?>"
-                               <?= in_array($ext, $selectedExtensions, true) ? 'checked' : '' ?>>
-                        <label class="form-check-label" for="ext_<?= e($ext) ?>">.<?= e($ext) ?></label>
+                        <input class="form-check-input" type="checkbox" id="extgrp_<?= e($group) ?>"
+                               name="allowed_groups[]" value="<?= e($group) ?>"
+                               <?= in_array($group, $selectedGroups, true) ? 'checked' : '' ?>>
+                        <label class="form-check-label" for="extgrp_<?= e($group) ?>"><?= e($extensionGroupLabels[$group] ?? $group) ?></label>
                     </div>
                     <?php endforeach; ?>
                 </div>

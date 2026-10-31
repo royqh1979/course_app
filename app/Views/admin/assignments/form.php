@@ -1,9 +1,6 @@
 <?php
 use App\Services\Csrf;
 
-$selectedExtensions = $assignment !== null
-    ? explode(',', (string) $assignment['allowed_extensions'])
-    : $submitExtensions;
 $toLocal = static fn (?string $dt): string => $dt ? e((new DateTime($dt))->format('Y-m-d\TH:i')) : '';
 $statusText = ['draft' => '草稿', 'published' => '已发布', 'closed' => '已关闭'][$assignment['status'] ?? 'draft'] ?? '';
 ?>
@@ -45,12 +42,12 @@ $statusText = ['draft' => '草稿', 'published' => '已发布', 'closed' => '已
             <div class="mb-3">
                 <span class="form-label d-block">允许提交的文件类型 *</span>
                 <div class="d-flex flex-wrap gap-3">
-                    <?php foreach ($submitExtensions as $ext): ?>
+                    <?php foreach ($extensionGroups as $group => $exts): ?>
                     <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="ext_<?= e($ext) ?>"
-                               name="allowed_extensions[]" value="<?= e($ext) ?>"
-                               <?= in_array($ext, $selectedExtensions, true) ? 'checked' : '' ?>>
-                        <label class="form-check-label" for="ext_<?= e($ext) ?>">.<?= e($ext) ?></label>
+                        <input class="form-check-input" type="checkbox" id="extgrp_<?= e($group) ?>"
+                               name="allowed_groups[]" value="<?= e($group) ?>"
+                               <?= in_array($group, $selectedGroups, true) ? 'checked' : '' ?>>
+                        <label class="form-check-label" for="extgrp_<?= e($group) ?>"><?= e($extensionGroupLabels[$group] ?? $group) ?></label>
                     </div>
                     <?php endforeach; ?>
                 </div>

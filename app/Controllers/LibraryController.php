@@ -29,7 +29,7 @@ use RuntimeException;
  */
 final class LibraryController extends BaseController
 {
-    private const HANDOUT_EXTENSIONS = ['doc', 'docx', 'ppt', 'pptx', 'pdf'];
+    private const HANDOUT_EXTENSIONS = ['doc', 'docx', 'ppt', 'pptx', 'pdf', 'zip', 'xls', 'xlsx'];
     private const ATTACHMENT_EXTENSIONS = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'zip'];
     private const TYPES = ['handout', 'assignment'];
     /** 各类型列表页路由（用于跳转与 tabs） */
@@ -317,7 +317,9 @@ final class LibraryController extends BaseController
             'assignment' => null,
             'attachments' => [],
             'action' => '?r=admin/library/assignments/store',
-            'submitExtensions' => AssignmentController::SUBMIT_EXTENSIONS,
+            'extensionGroups' => AssignmentController::EXTENSION_GROUPS,
+            'extensionGroupLabels' => AssignmentController::EXTENSION_GROUP_LABELS,
+            'selectedGroups' => [],
             'folderOptions' => $this->folderOptions('assignment'),
             'currentFolderId' => $folderId,
             'typeRoute' => self::TYPE_ROUTES['assignment'],
@@ -350,7 +352,9 @@ final class LibraryController extends BaseController
             'assignment' => $assignment,
             'attachments' => $this->libraryAssignments->listAttachments((int) $assignment['id']),
             'action' => '?r=admin/library/assignments/update',
-            'submitExtensions' => AssignmentController::SUBMIT_EXTENSIONS,
+            'extensionGroups' => AssignmentController::EXTENSION_GROUPS,
+            'extensionGroupLabels' => AssignmentController::EXTENSION_GROUP_LABELS,
+            'selectedGroups' => AssignmentController::selectedGroups($assignment['allowed_extensions'] ?? null),
             'folderOptions' => $this->folderOptions('assignment'),
             'currentFolderId' => $assignment['folder_id'] !== null ? (int) $assignment['folder_id'] : null,
             'typeRoute' => self::TYPE_ROUTES['assignment'],
@@ -769,7 +773,13 @@ final class LibraryController extends BaseController
         }
         $extensions = array_values(array_intersect(
             AssignmentController::SUBMIT_EXTENSIONS,
-            array_map('strval', (array) ($_POST['allowed_extensions'] ?? []))
+            array_map(
+                'strval',
+                array_merge(
+                    (array) ($_POST['allowed_extensions'] ?? []),
+                    AssignmentController::expandGroups((array) ($_POST['allowed_groups'] ?? []))
+                )
+            )
         ));
         if ($extensions === []) {
             Session::flash('error', '请至少选择一种允许提交的文件类型。');

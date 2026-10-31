@@ -73,8 +73,8 @@
             <input class="form-control" id="lib_handout_desc" name="description" maxlength="500">
         </div>
         <div class="col-md-4">
-            <label class="form-label" for="lib_handout_file">文件（doc/docx/ppt/pptx/pdf）</label>
-            <input class="form-control" type="file" id="lib_handout_file" name="file" accept=".doc,.docx,.ppt,.pptx,.pdf" required
+            <label class="form-label" for="lib_handout_file">文件（doc/docx/ppt/pptx/pdf/zip/xls/xlsx）</label>
+            <input class="form-control" type="file" id="lib_handout_file" name="file" accept=".doc,.docx,.ppt,.pptx,.pdf,.zip,.xls,.xlsx" required
                    multiple data-autotitle="#lib_handout_title">
         </div>
         <div class="col-md-2">

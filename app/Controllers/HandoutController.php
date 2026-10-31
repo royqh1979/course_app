@@ -21,7 +21,7 @@ use RuntimeException;
  */
 final class HandoutController extends BaseController
 {
-    private const ALLOWED_EXTENSIONS = ['doc', 'docx', 'ppt', 'pptx', 'pdf'];
+    private const ALLOWED_EXTENSIONS = ['doc', 'docx', 'ppt', 'pptx', 'pdf', 'zip', 'xls', 'xlsx'];
 
     private readonly FileStorage $storage;
 

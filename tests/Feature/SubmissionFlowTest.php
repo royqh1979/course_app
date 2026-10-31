@@ -6,6 +6,7 @@ namespace App\Tests\Feature;
 
 use App\Repositories\AssignmentRepository;
 use App\Repositories\CourseRepository;
+use App\Repositories\HandoutRepository;
 use App\Repositories\RosterRepository;
 use App\Repositories\SubmissionRepository;
 use App\Support\App;
@@ -448,5 +449,53 @@ final class SubmissionFlowTest extends FeatureTestCase
         $this->assertSame('published', (new AssignmentRepository())->findById($a3)['status'], '有提交不可下线');
         $admin->post('/?r=admin/assignments/delete', ['_csrf' => $csrf, 'id' => (string) $a3]);
         $this->assertSame('published', (new AssignmentRepository())->findById($a3)['status'], '有提交不可删除');
+    }
+
+    public function testHandoutAcceptsZipAndExcelFormats(): void
+    {
+        $courseId = (new CourseRepository())->create('数据结构', null, '', null);
+        $admin = new HttpClient(self::$baseUrl);
+        $this->loginAdmin($admin);
+        $page = $admin->get('/?r=admin/courses/handouts&id=' . $courseId);
+        $csrf = $page->csrfToken() ?? '';
+
+        // .zip 与 .xlsx 作为课程讲义主文件上传成功（xlsx 实为 zip 容器，用 ZipArchive 造真实文件头）
+        $zipPath = $this->makeZip('实验数据');
+        $admin->upload('/?r=admin/handouts/store', 'file', $zipPath, '实验数据包.zip', [
+            '_csrf' => $csrf, 'course_id' => (string) $courseId, 'title' => '实验数据包',
+        ]);
+        $xlsxPath = tempnam(sys_get_temp_dir(), 'h_') . '.xlsx';
+        $xzip = new \ZipArchive();
+        $xzip->open($xlsxPath, \ZipArchive::CREATE);
+        $xzip->addFromString('sheet1.xml', '<worksheet/>');
+        $xzip->close();
+        $this->tmpFiles[] = $xlsxPath;
+        $admin->upload('/?r=admin/handouts/store', 'file', $xlsxPath, '统计表.xlsx', [
+            '_csrf' => $csrf, 'course_id' => (string) $courseId, 'title' => '统计表',
+        ]);
+        $handouts = (new HandoutRepository())->listByCourse($courseId);
+        $this->assertCount(2, $handouts, '课件主文件应支持 zip/xls/xlsx');
+        $this->assertSame('实验数据包.zip', $handouts[0]['original_name']);
+
+        // 备课区课件同样支持
+        $libPage = $admin->get('/?r=admin/library/handouts');
+        $admin->upload('/?r=admin/library/handouts/store', 'file', $zipPath, '备课区数据.zip', [
+            '_csrf' => $libPage->csrfToken() ?? '', 'folder_id' => '', 'title' => '备课区数据',
+        ]);
+        $library = (new \App\Repositories\LibraryHandoutRepository())->listAll();
+        $this->assertCount(1, $library);
+        $this->assertSame('备课区数据.zip', $library[0]['original_name']);
+
+        // 非法后缀仍被拒绝
+        $exePath = tempnam(sys_get_temp_dir(), 'h_');
+        file_put_contents($exePath, 'MZfake');
+        $admin->upload('/?r=admin/handouts/store', 'file', $exePath, '恶意.exe', [
+            '_csrf' => $csrf, 'course_id' => (string) $courseId, 'title' => '恶意',
+        ]);
+        $this->assertCount(2, (new HandoutRepository())->listByCourse($courseId), 'exe 仍应被拒绝');
+
+        unlink($zipPath);
+        unlink($xlsxPath);
+        unlink($exePath);
     }
 }
