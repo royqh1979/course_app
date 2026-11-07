@@ -311,7 +311,7 @@ final class LibraryController extends BaseController
     public function assignmentCreate(): void
     {
         $this->requireUser(AuthService::TYPE_ADMIN);
-        $folderId = $this->itemFolderIdFromRequest('assignment', true);
+        $folderId = $this->folderIdFromRequest('assignment');
         View::render('admin/library/assignment_form', [
             'title' => '新建作业',
             'assignment' => null,
@@ -333,7 +333,8 @@ final class LibraryController extends BaseController
 
         $data = $this->readAssignmentForm();
         if ($data === null) {
-            redirect('?r=admin/library/assignments/create');
+            $folderId = $this->itemFolderIdFromRequest('assignment', true);
+            redirect('?r=admin/library/assignments/create' . ($folderId !== null ? '&folder_id=' . $folderId : ''));
         }
         $data['folder_id'] = $this->itemFolderIdFromRequest('assignment', true);
         // 作业行与随表单多附件在同一事务落库；单个附件校验失败不中断创建

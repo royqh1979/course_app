@@ -505,6 +505,40 @@ final class LibraryFlowTest extends FeatureTestCase
         $this->assertSame(200, $edit->status);
     }
 
+    public function testAssignmentCreatePrefillsCurrentFolder(): void
+    {
+        $admin = new HttpClient(self::$baseUrl);
+        $this->loginAdmin($admin);
+
+        $folders = new \App\Repositories\LibraryFolderRepository();
+        $folderId = $folders->create(null, '第二章', 'assignment');
+
+        // 从某个文件夹进入新建页：所属文件夹应预选当前文件夹（而非根目录）
+        $create = $admin->get('/?r=admin/library/assignments/create&folder_id=' . $folderId);
+        $this->assertSame(200, $create->status);
+        $this->assertMatchesRegularExpression(
+            '/<option value="' . $folderId . '"[^>]*selected/s',
+            $create->body,
+            '新建页应预选当前文件夹'
+        );
+
+        // 校验失败返回新建页时保留文件夹上下文
+        $res = $admin->post('/?r=admin/library/assignments/store', [
+            '_csrf' => $create->csrfToken() ?? '',
+            'title' => '',
+            'allowed_groups' => ['zip'],
+            'max_file_size_mb' => '10',
+            'folder_id' => (string) $folderId,
+        ]);
+        $this->assertSame(302, $res->status);
+        $this->assertStringContainsString('folder_id=' . $folderId, $res->header('location') ?? '');
+
+        // 其它类型的 folder_id 视为不存在
+        $handoutFolderId = $folders->create(null, '课件目录', 'handout');
+        $mismatch = $admin->get('/?r=admin/library/assignments/create&folder_id=' . $handoutFolderId);
+        $this->assertSame(404, $mismatch->status);
+    }
+
     public function testAssignmentExtensionGroups(): void
     {
         $admin = new HttpClient(self::$baseUrl);
