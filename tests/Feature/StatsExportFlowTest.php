@@ -92,7 +92,7 @@ final class StatsExportFlowTest extends FeatureTestCase
         $student = new HttpClient(self::$baseUrl);
         $this->login($student, 'student', '2024001', 'student-pass-123');
         $page = $student->get('/?r=student/assignment&id=' . $assignmentId);
-        $student->upload('/?r=student/submissions/submit', 'file', $this->makeZipFile(), '张三作业.zip', [
+        $student->upload('/?r=student/submissions/submit', 'files[]', $this->makeZipFile(), '张三作业.zip', [
             '_csrf' => $page->csrfToken() ?? '',
             'assignment_id' => (string) $assignmentId,
         ]);
@@ -152,7 +152,7 @@ final class StatsExportFlowTest extends FeatureTestCase
             mkdir(dirname($storage . '/' . $storedPath), 0750, true);
         }
         copy($this->makeZipFile('老生'), $storage . '/' . $storedPath);
-        $submissions->insert($assignmentId, 2, $files->create([
+        $submissions->insertWithFile($assignmentId, 2, $files->create([
             'original_name' => '老生作业.zip',
             'stored_path' => $storedPath,
             'extension' => 'zip',
@@ -218,7 +218,7 @@ final class StatsExportFlowTest extends FeatureTestCase
 
         // XHR 重交：JSON 成功响应，含文件名显式提示
         $page = $student->get('/?r=student/assignment&id=' . $assignmentId);
-        $res = $student->upload('/?r=student/submissions/submit', 'file', $this->makeZipFile('v2'), '新版作业.zip', [
+        $res = $student->upload('/?r=student/submissions/submit', 'files[]', $this->makeZipFile('v2'), '新版作业.zip', [
             '_csrf' => $page->csrfToken() ?? '',
             'assignment_id' => (string) $assignmentId,
         ]);
@@ -232,7 +232,7 @@ final class StatsExportFlowTest extends FeatureTestCase
         file_put_contents($txt, 'not allowed');
         $this->tmpFiles[] = $txt;
         $page = $student->get('/?r=student/assignment&id=' . $assignmentId);
-        $res = $student->upload('/?r=student/submissions/submit', 'file', $txt, '作业.exe', [
+        $res = $student->upload('/?r=student/submissions/submit', 'files[]', $txt, '作业.exe', [
             '_csrf' => $page->csrfToken() ?? '',
             'assignment_id' => (string) $assignmentId,
         ]);

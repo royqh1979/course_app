@@ -88,10 +88,28 @@ final class SubmissionFlowTest extends FeatureTestCase
     private function studentSubmit(HttpClient $student, int $assignmentId, string $file, string $name): HttpResponse
     {
         $page = $student->get('/?r=student/assignment&id=' . $assignmentId);
-        return $student->upload('/?r=student/submissions/submit', 'file', $file, $name, [
+        return $student->upload('/?r=student/submissions/submit', 'files[]', $file, $name, [
             '_csrf' => $page->csrfToken() ?? '',
             'assignment_id' => (string) $assignmentId,
         ]);
+    }
+
+    /** 一次请求提交多个文件（files[] 多文件 multipart） */
+    private function studentSubmitMulti(HttpClient $student, int $assignmentId, array $files): HttpResponse
+    {
+        $page = $student->get('/?r=student/assignment&id=' . $assignmentId);
+        $boundary = '----MultiFileTest' . bin2hex(random_bytes(8));
+        $body = '--' . $boundary . "\r\n"
+            . 'Content-Disposition: form-data; name="_csrf"' . "\r\n\r\n" . ($page->csrfToken() ?? '') . "\r\n"
+            . '--' . $boundary . "\r\n"
+            . 'Content-Disposition: form-data; name="assignment_id"' . "\r\n\r\n" . $assignmentId . "\r\n";
+        foreach ($files as [$path, $name, $mime]) {
+            $body .= '--' . $boundary . "\r\n"
+                . 'Content-Disposition: form-data; name="files[]"; filename="' . $name . '"' . "\r\n"
+                . 'Content-Type: ' . $mime . "\r\n\r\n" . file_get_contents($path) . "\r\n";
+        }
+        $body .= '--' . $boundary . "--\r\n";
+        return $student->request('POST', '/?r=student/submissions/submit', null, $body, 'multipart/form-data; boundary=' . $boundary);
     }
 
     public function testAssignmentPublishAndVisibleToStudent(): void
@@ -147,16 +165,18 @@ final class SubmissionFlowTest extends FeatureTestCase
         $submissions = new SubmissionRepository();
         $sub = $submissions->findByAssignmentAndStudent($assignmentId, 1);
         $this->assertNotNull($sub);
-        $this->assertSame('作业v1.zip', $sub['original_name']);
+        $subFiles = $submissions->listFiles((int) $sub['id']);
+        $this->assertCount(1, $subFiles);
+        $this->assertSame('作业v1.zip', $subFiles[0]['original_name']);
         $this->assertSame(0, (int) $sub['is_late']);
 
         // 磁盘为 UUID 命名（验收 8）
         $storageRoot = rtrim((string) App::config('storage_path'), '/\\');
         $this->assertMatchesRegularExpression(
             '#^courses/' . $courseId . '/assignments/' . $assignmentId . '/submissions/[0-9a-f-]{36}\.zip$#',
-            $sub['stored_path']
+            $subFiles[0]['stored_path']
         );
-        $oldAbsolute = $storageRoot . '/' . $sub['stored_path'];
+        $oldAbsolute = $storageRoot . '/' . $subFiles[0]['stored_path'];
         $this->assertFileExists($oldAbsolute);
 
         $page = $student->get('/?r=student/assignment&id=' . $assignmentId);
@@ -167,14 +187,91 @@ final class SubmissionFlowTest extends FeatureTestCase
         $this->studentSubmit($student, $assignmentId, $this->makeZip('v2'), '作业v2.zip');
         $sub2 = $submissions->findByAssignmentAndStudent($assignmentId, 1);
         $this->assertSame((int) $sub['id'], (int) $sub2['id'], '每人每作业仅一条记录');
-        $this->assertSame('作业v2.zip', $sub2['original_name']);
+        $sub2Files = $submissions->listFiles((int) $sub2['id']);
+        $this->assertCount(1, $sub2Files);
+        $this->assertSame('作业v2.zip', $sub2Files[0]['original_name']);
         $this->assertSame($sub['first_submitted_at'], $sub2['first_submitted_at'], '首次提交时间保留');
         $this->assertFileDoesNotExist($oldAbsolute, '旧文件应被清理');
 
         // 学生可下载自己的提交
-        $download = $student->get('/?r=submission/download&id=' . $sub2['id']);
+        $download = $student->get('/?r=submission/download&id=' . $sub2Files[0]['id']);
         $this->assertSame(200, $download->status);
         $this->assertStringContainsString(rawurlencode('作业v2.zip'), $download->header('content-disposition') ?? '');
+    }
+
+    public function testSubmitMultipleFilesAtOnce(): void
+    {
+        $courseId = $this->setupCourse();
+        $assignmentId = $this->makeAssignment($courseId);
+        (new AssignmentRepository())->setStatus($assignmentId, 'published');
+
+        $student = new HttpClient(self::$baseUrl);
+        $this->loginStudent($student);
+
+        // 一次提交两个文件
+        $res = $this->studentSubmitMulti($student, $assignmentId, [
+            [$this->makeZip('A'), '报告.zip', 'application/zip'],
+            [$this->makeZip('B'), '数据.zip', 'application/zip'],
+        ]);
+        $this->assertSame(302, $res->status);
+
+        $submissions = new SubmissionRepository();
+        $sub = $submissions->findByAssignmentAndStudent($assignmentId, 1);
+        $this->assertNotNull($sub);
+        $files = $submissions->listFiles((int) $sub['id']);
+        $this->assertCount(2, $files, '一次提交应含两个文件');
+        $names = array_column($files, 'original_name');
+        sort($names);
+        $this->assertSame(['报告.zip', '数据.zip'], $names);
+
+        // 学生页展示全部文件，逐个可下载
+        $page = $student->get('/?r=student/assignment&id=' . $assignmentId);
+        $this->assertStringContainsString('报告.zip', $page->body);
+        $this->assertStringContainsString('数据.zip', $page->body);
+        foreach ($files as $sf) {
+            $this->assertSame(200, $student->get('/?r=submission/download&id=' . $sf['id'])->status);
+        }
+
+        // 重交单个文件 → 整体替换，旧文件全部清理
+        $storageRoot = rtrim((string) App::config('storage_path'), '/\\');
+        $oldAbsolutes = array_map(
+            static fn (array $f): string => $storageRoot . '/' . $f['stored_path'],
+            $files
+        );
+        $this->studentSubmit($student, $assignmentId, $this->makeZip('v3'), '最终版.zip');
+        $filesAfter = $submissions->listFiles((int) $sub['id']);
+        $this->assertCount(1, $filesAfter);
+        $this->assertSame('最终版.zip', $filesAfter[0]['original_name']);
+        foreach ($oldAbsolutes as $old) {
+            $this->assertFileDoesNotExist($old, '重交后旧文件应全部清理');
+        }
+    }
+
+    public function testSubmitMultipleFilesRejectsWholeBatchOnBadFile(): void
+    {
+        $courseId = $this->setupCourse();
+        $assignmentId = $this->makeAssignment($courseId, ['allowed_extensions' => 'zip']);
+        (new AssignmentRepository())->setStatus($assignmentId, 'published');
+
+        $student = new HttpClient(self::$baseUrl);
+        $this->loginStudent($student);
+
+        // 多文件中有一个后缀非法 → 整单拒绝，不产生提交记录
+        $res = $this->studentSubmitMulti($student, $assignmentId, [
+            [$this->makeZip('ok'), '合法.zip', 'application/zip'],
+            [tempnam(sys_get_temp_dir(), 'bad_'), '非法.exe', 'application/octet-stream'],
+        ]);
+        $this->assertSame(302, $res->status);
+        $this->assertNull(
+            (new SubmissionRepository())->findByAssignmentAndStudent($assignmentId, 1),
+            '任一文件非法则整单拒绝'
+        );
+
+        // 已通过校验的文件也应被补偿清理，磁盘不残留
+        $dir = rtrim((string) App::config('storage_path'), '/\\')
+            . '/courses/' . $courseId . '/assignments/' . $assignmentId . '/submissions';
+        $leftovers = is_dir($dir) ? (glob($dir . '/*') ?: []) : [];
+        $this->assertSame([], $leftovers, '失败批次不应残留磁盘文件');
     }
 
     public function testSubmissionPermissionOnOthers(): void
@@ -187,18 +284,19 @@ final class SubmissionFlowTest extends FeatureTestCase
         $this->loginStudent($student);
         $this->studentSubmit($student, $assignmentId, $this->makeZip(), '作业.zip');
         $sub = (new SubmissionRepository())->findByAssignmentAndStudent($assignmentId, 1);
+        $fileId = (new SubmissionRepository())->listFiles((int) $sub['id'])[0]['id'];
 
         // 另一学生下载他人提交 → 403（验收 4 文件级）
         (new RosterRepository())->add($courseId, '2024002', '李四', '计科2401');
         $this->createStudent('2024002', '李四');
         $other = new HttpClient(self::$baseUrl);
         $this->login($other, 'student', '2024002', 'student-pass-123');
-        $this->assertSame(403, $other->get('/?r=submission/download&id=' . $sub['id'])->status);
+        $this->assertSame(403, $other->get('/?r=submission/download&id=' . $fileId)->status);
 
         // 教师可下载
         $admin = new HttpClient(self::$baseUrl);
         $this->loginAdmin($admin);
-        $this->assertSame(200, $admin->get('/?r=submission/download&id=' . $sub['id'])->status);
+        $this->assertSame(200, $admin->get('/?r=submission/download&id=' . $fileId)->status);
     }
 
     public function testSubmitRejectsBadExtensionAndOversize(): void
@@ -442,7 +540,7 @@ final class SubmissionFlowTest extends FeatureTestCase
             'size' => 10,
             'sha256' => null,
         ]);
-        (new SubmissionRepository())->insert($a3, $studentId, $fileId);
+        (new SubmissionRepository())->insertWithFile($a3, $studentId, $fileId);
         $page = $admin->get('/?r=admin/courses/assignments&id=' . $courseId);
         $csrf = $page->csrfToken() ?? '';
         $admin->post('/?r=admin/assignments/unpublish', ['_csrf' => $csrf, 'id' => (string) $a3]);

@@ -87,7 +87,7 @@ final class StudentManagementTest extends DatabaseTestCase
         $id = $this->students->create('2024001', '张三', PasswordService::hash('password-123'));
         $this->assertSame(0, $this->students->countSubmissions($id));
 
-        $this->pdo->prepare('INSERT INTO submissions (assignment_id, student_id, file_id) VALUES (1, :id, 1)')
+        $this->pdo->prepare('INSERT INTO submissions (assignment_id, student_id) VALUES (1, :id)')
             ->execute(['id' => $id]);
         $this->assertSame(1, $this->students->countSubmissions($id));
 

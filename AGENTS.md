@@ -25,6 +25,8 @@
 
 **作业批改已完成**：`?r=admin/assignments/submissions&id=` 提交列表内嵌批改表单（分数 0–100 / 评语，至少一项）；`submissions` 表含 `score/comment/graded_at`。**批改后该提交对学生锁定**（不能再重交，提交表单隐藏，服务端拒绝）；**教师可随时修改批改结果**（`graded_at` 刷新，审计区分 `submission.grade/regrade`）；学生作业页展示分数与评语。
 
+**学生提交多附件已完成**：`submission_files` 关联表，一次提交可含多个文件（`files[]` 多选），整单事务、任一不合格即拒绝并补偿清理；重交整体替换旧文件组。下载端点 `submission/download&id=` 的 id 为 `submission_files.id`（权限规则不变：教师任意、学生仅限本人）。既有库跑 `php scripts/migrate_submission_files.php`（建表+回填+对账，默认不删旧列；`--drop-column` 显式清理）。**测试存储隔离（事故教训 2026-11）**：`APP_ENV=test`（phpunit.xml 与测试服务器统一设置）时 `storage_path` 指向 `sys_get_temp_dir()/course_app_test_storage`，测试清理逻辑严禁触碰生产 storage。
+
 **列表分页已完成**：`App\Support\Pagination` + 视图局部模板 `app/Views/_pagination.php`；课程/学生/作业提交列表分页，课程详情页讲义/作业/名单三表独立页码参数（`hp`/`ap`/`rp`）；每页条数可选（10/20/50/100，`per_page` 参数保留），未指定时按 UA 判定**手机 20、电脑 50**；页码越界自动回落最后一页；翻页保留筛选条件。
 
 **文件操作事务化已完成**：`FileStorage::transactional()` 实现"事务 + 补偿"——回调内 DB 写入用 `Database::transaction()` 包裹，`store()` 的新文件登记入册、异常时补偿删除，`delete()` 延后到事务提交后执行。凡伴随 DB 写入的文件操作必须走该方法（讲义/附件/提交/备课区已全部接入）。
@@ -90,7 +92,7 @@
 - **名单不关联账号**：`course_roster` 只存 `(course_id, student_no, name, class_name)`，不存 `student_id`，不持久化匹配结果。
 - **权限实时查询**：学生课程权限按“学号 + 姓名同时匹配名单”实时 SQL 查询（方案第四节给出 SQL）；名单变动后权限即时生效，注册后无需额外匹配操作。
 - **服务端权限复检**：访问具体课程、讲义、作业、附件、下载文件时必须在服务端重新检查权限，不能只隐藏页面入口。
-- **提交模式**：每名学生对每项作业仅保留一份当前有效提交（`(assignment_id, student_id)` 唯一）；截止前可重新提交并替换旧文件；先保存新文件并更新数据库成功，再清理旧文件。
+- **提交模式**：每名学生对每项作业仅保留一份当前有效提交（`(assignment_id, student_id)` 唯一）；一次提交可含多个文件（`submission_files` 关联，重交整体替换整组文件）；截止前可重新提交；先保存新文件并更新数据库成功，再清理旧文件。
 - **迟交实时计算**：不存 `is_late` 字段；`迟交 = deadline_at 非空 且 last_submitted_at > deadline_at`，所有页面与统计统一按此实时计算；教师改期后自动生效，禁止写"重算迟交标志"类逻辑。
 - **补交默认允许**：`assignments.allow_late` 默认 1（截止后仍可提交并记为迟交），教师可按作业关闭；作业任何字段（含已过的截止时间）任何状态可编辑，改后实时生效。
 - **小组作业**：小组是课程级（一课一组，加组需组长审批，pending/active 都算占用）；作业级 `is_group` 开关；只有组长能提交；成绩按组共享（取组提交映射全组，未批改空白）；人数上限加入时检查、下限提交时检查；组长不能退出、有提交的组不能解散。
@@ -127,7 +129,7 @@
 
 - 依赖：`composer install`（Composer 2 + PHP 8.3+，`composer.lock` 需提交）。测试框架 PHPUnit 12（require-dev）。
 - 测试：`composer test` 跑全部；`php vendor/bin/phpunit --testsuite unit|integration|feature` 分套件运行。测试库为 `class_app_test`（每次运行自动重建表结构；功能测试自动启动 `php -S 127.0.0.1:8123`）。
-- 数据库初始化：`php scripts/install_db.php`（幂等，只建表）；账号创建：`php scripts/create_admin.php` / `php scripts/create_student.php`；改管理员密码：`php scripts/change_admin_password.php <用户名> <新密码>`（校验密码强度策略并使其他会话失效）；备课区文件夹升级：`php scripts/migrate_library_folders.php`（幂等迁移）。
+- 数据库初始化：`php scripts/install_db.php`（幂等，只建表）；账号创建：`php scripts/create_admin.php` / `php scripts/create_student.php`；改管理员密码：`php scripts/change_admin_password.php <用户名> <新密码>`（校验密码强度策略并使其他会话失效）；备课区文件夹升级：`php scripts/migrate_library_folders.php`（幂等迁移）；提交多附件升级：`php scripts/migrate_submission_files.php`（建表+回填+对账，默认不删旧列，`--drop-column` 显式清理）。
 - 本机配置：`config/config.local.php`（gitignore，真实凭证只放这里）；通用默认在 `config/config.php`，可被环境变量 `DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASS` 覆盖。
 - 部署目标：Nginx + PHP-FPM，`public/` 为站点根目录，`storage/` 在公开目录之外。**云主机部署步骤见 `部署说明.md`**（环境、Nginx/PHP 配置、HTTPS、cron 备份与孤立文件清理、安全清单、冒烟验证）。
 - 运维要求：定期同时备份 MySQL 与 `storage/courses/`；异地/对象存储备份；监控磁盘空间。

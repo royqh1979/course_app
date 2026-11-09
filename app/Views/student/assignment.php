@@ -48,14 +48,21 @@ $canSubmit = $submitBlock === null;
 <?php if ($submission !== null): ?>
 <div class="border rounded p-3 mb-3">
     <p class="mb-1">
-        当前文件：<a href="?r=submission/download&id=<?= (int) $submission['id'] ?>"><?= e($submission['original_name']) ?></a>
-        （<?= e(format_size((int) $submission['size'])) ?>）
+        当前文件（<?= count($submissionFiles) ?> 个）：
         <?php if ((bool) $submission['is_late']): ?>
             <span class="badge bg-warning text-dark">迟交</span>
         <?php else: ?>
             <span class="badge bg-success">按时</span>
         <?php endif; ?>
     </p>
+    <ul class="mb-1">
+        <?php foreach ($submissionFiles as $sf): ?>
+        <li>
+            <a href="?r=submission/download&id=<?= (int) $sf['id'] ?>"><?= e($sf['original_name']) ?></a>
+            <span class="text-muted">（<?= e(format_size((int) $sf['size'])) ?>）</span>
+        </li>
+        <?php endforeach; ?>
+    </ul>
     <p class="text-muted small mb-0">
         首次提交：<?= e($submission['first_submitted_at']) ?>　最近提交：<?= e($submission['last_submitted_at']) ?>
     </p>
@@ -86,11 +93,11 @@ $canSubmit = $submitBlock === null;
     <input type="hidden" name="assignment_id" value="<?= (int) $assignment['id'] ?>">
     <div class="mb-2">
         <label class="form-label" for="file"><?= $submission === null ? '提交作业' : '重新提交（替换旧文件）' ?></label>
-        <input class="form-control" type="file" id="file" name="file"
-               accept=".<?= str_replace(',', ',.', e($assignment['allowed_extensions'])) ?>" required>
+        <input class="form-control" type="file" id="file" name="files[]"
+               accept=".<?= str_replace(',', ',.', e($assignment['allowed_extensions'])) ?>" required multiple>
         <div class="form-text">
-            允许类型：<?= e(implode('、', array_map(fn ($e2) => '.' . $e2, explode(',', (string) $assignment['allowed_extensions'])))) ?>
-            ；单文件最大 <?= (int) round($assignment['max_file_size'] / 1024 / 1024) ?> MB。
+            可一次选择多个文件；允许类型：<?= e(implode('、', array_map(fn ($e2) => '.' . $e2, explode(',', (string) $assignment['allowed_extensions'])))) ?>
+            ；单文件最大 <?= (int) round($assignment['max_file_size'] / 1024 / 1024) ?> MB，重新提交将整体替换旧文件。
         </div>
     </div>
     <button type="submit" class="btn btn-primary"><?= $submission === null ? '提交' : '重新提交' ?></button>

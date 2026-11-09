@@ -40,8 +40,17 @@
         <td><?= e($sub['student_name']) ?></td>
         <?php endif; ?>
         <td>
-            <a href="?r=submission/download&id=<?= (int) $sub['id'] ?>"><?= e($sub['original_name']) ?></a>
-            <span class="text-muted">（<?= e(format_size((int) $sub['size'])) ?>）</span>
+            <?php $subFiles = $filesMap[(int) $sub['id']] ?? []; ?>
+            <?php if ($subFiles === []): ?>
+            <span class="text-muted">无文件</span>
+            <?php else: ?>
+                <?php foreach ($subFiles as $sf): ?>
+                <div>
+                    <a href="?r=submission/download&id=<?= (int) $sf['id'] ?>"><?= e($sf['original_name']) ?></a>
+                    <span class="text-muted">（<?= e(format_size((int) $sf['size'])) ?>）</span>
+                </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
             <?php if ((bool) $assignment['is_group']): ?>
             <div class="text-muted small">组长：<?= e($sub['student_name']) ?>（<?= e($sub['student_no']) ?>）</div>
             <?php endif; ?>

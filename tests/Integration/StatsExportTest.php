@@ -62,11 +62,11 @@ final class StatsExportTest extends DatabaseTestCase
         $roster->add($this->courseId, '2024003', '王五', '计科2402');
         $s1 = $students->create('2024001', '张三', PasswordService::hash('password-123'));
         $students->create('2024002', '李四', PasswordService::hash('password-123'));
-        $submissions->insert($this->assignmentId, $s1, $this->makeFile($files));
+        $submissions->insertWithFile($this->assignmentId, $s1, $this->makeFile($files));
 
         // 另有历史提交的学生已被移出名单：不计入统计
         $removed = $students->create('2024999', '老生', PasswordService::hash('password-123'));
-        $submissions->insert($this->assignmentId, $removed, $this->makeFile($files));
+        $submissions->insertWithFile($this->assignmentId, $removed, $this->makeFile($files));
 
         $summary = $submissions->statsSummary($this->assignmentId);
         $this->assertSame(['total' => 3, 'submitted' => 1, 'late' => 0], $summary, '统计以当前名单为基准');
@@ -88,7 +88,7 @@ final class StatsExportTest extends DatabaseTestCase
         $files = new FileRepository();
         (new RosterRepository())->add($this->courseId, '2024001', '张三', '计科2401');
         $s1 = $students->create('2024001', '张三', PasswordService::hash('password-123'));
-        $submissions->insert($this->assignmentId, $s1, $this->makeFile($files));
+        $submissions->insertWithFile($this->assignmentId, $s1, $this->makeFile($files));
 
         $summary = $submissions->statsSummary($this->assignmentId);
         $this->assertSame(1, $summary['late'], '截止后提交实时计算为迟交');
@@ -104,10 +104,10 @@ final class StatsExportTest extends DatabaseTestCase
 
         $roster->add($this->courseId, '2024001', '张三', '计科2401');
         $s1 = $students->create('2024001', '张三', PasswordService::hash('password-123'));
-        $submissions->insert($this->assignmentId, $s1, $this->makeFile($files));
+        $submissions->insertWithFile($this->assignmentId, $s1, $this->makeFile($files));
         // 已移出名单但有提交的学生
         $s2 = $students->create('2024999', '老生', PasswordService::hash('password-123'));
-        $submissions->insert($this->assignmentId, $s2, $this->makeFile($files));
+        $submissions->insertWithFile($this->assignmentId, $s2, $this->makeFile($files));
 
         $rows = $submissions->listAllForExport($this->assignmentId);
         $this->assertCount(2, $rows, 'ZIP 打包含全部有效提交，包括已移出名单学生');

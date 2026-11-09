@@ -127,7 +127,7 @@ final class AdminStudentTest extends FeatureTestCase
         // 未匹配但有提交记录的账号拒绝删除
         $withSubmissionId = $this->createStudent('2024003', '王五');
         \App\Support\Database::pdo()
-            ->prepare('INSERT INTO submissions (assignment_id, student_id, file_id) VALUES (1, :id, 1)')
+            ->prepare('INSERT INTO submissions (assignment_id, student_id) VALUES (1, :id)')
             ->execute(['id' => $withSubmissionId]);
         $this->adminPost($client, 'admin/students/delete', ['id' => (string) $withSubmissionId]);
         $this->assertNotNull($students->findById($withSubmissionId), '有提交记录的账号不能被物理删除');

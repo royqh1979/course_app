@@ -73,15 +73,19 @@ final class FileController extends BaseController
         $this->storage->output((string) $attachment['stored_path'], (string) $attachment['original_name'], (string) $attachment['mime_type']);
     }
 
-    /** 提交文件下载：教师任意；学生仅限本人提交且仍有课程权限 */
+    /** 提交文件下载：教师任意；学生仅限本人提交且仍有课程权限。id 为 submission_files.id */
     public function submission(): void
     {
         $user = $this->requireAnyUser();
-        $submission = $this->submissions->findById((int) ($_GET['id'] ?? 0));
-        if ($submission === null) {
+        $file = $this->submissions->findFileById((int) ($_GET['id'] ?? 0));
+        if ($file === null) {
             $this->notFound('文件不存在。');
         }
         if ($user['type'] === AuthService::TYPE_STUDENT) {
+            $submission = $this->submissions->findById((int) $file['submission_id']);
+            if ($submission === null) {
+                $this->notFound('文件不存在。');
+            }
             $assignment = $this->assignments->findById((int) $submission['assignment_id']);
             if ((int) $submission['student_id'] !== (int) $user['id']
                 || $assignment === null
@@ -89,7 +93,7 @@ final class FileController extends BaseController
                 $this->forbidden('您没有下载该文件的权限。');
             }
         }
-        $this->storage->output((string) $submission['stored_path'], (string) $submission['original_name'], (string) $submission['mime_type']);
+        $this->storage->output((string) $file['stored_path'], (string) $file['original_name'], (string) $file['mime_type']);
     }
 
     /** 备课区课件模板下载：仅教师 */

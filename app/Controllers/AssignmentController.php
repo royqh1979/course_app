@@ -325,14 +325,18 @@ final class AssignmentController extends BaseController
             ? $this->submissions->statsSummaryGroup((int) $assignment['id'])
             : $this->submissions->statsSummary((int) $assignment['id']);
         $pagination = Pagination::fromRequest('page', $summary['total']);
+        $rows = $isGroup
+            ? $this->submissions->statsByAssignmentGroup((int) $assignment['id'], $pagination)
+            : $this->submissions->statsByAssignment((int) $assignment['id'], $pagination);
         View::render('admin/assignments/stats', [
             'title' => '提交情况 — ' . $assignment['title'],
             'course' => $course,
             'assignment' => $assignment,
             'summary' => $summary,
-            'rows' => $isGroup
-                ? $this->submissions->statsByAssignmentGroup((int) $assignment['id'], $pagination)
-                : $this->submissions->statsByAssignment((int) $assignment['id'], $pagination),
+            'rows' => $rows,
+            'filesMap' => $this->submissions->listFilesForSubmissions(
+                array_map('intval', array_filter(array_column($rows, 'submission_id')))
+            ),
             'pagination' => $pagination,
         ]);
     }
@@ -382,13 +386,17 @@ final class AssignmentController extends BaseController
         $pagination = Pagination::fromRequest('page', $isGroup
             ? $this->submissions->countGroupByAssignment((int) $assignment['id'])
             : $this->submissions->countByAssignment((int) $assignment['id']));
+        $submissions = $isGroup
+            ? $this->submissions->listGroupByAssignment((int) $assignment['id'], $pagination)
+            : $this->submissions->listByAssignment((int) $assignment['id'], $pagination);
         View::render('admin/assignments/submissions', [
             'title' => '提交批改 — ' . $assignment['title'],
             'course' => $course,
             'assignment' => $assignment,
-            'submissions' => $isGroup
-                ? $this->submissions->listGroupByAssignment((int) $assignment['id'], $pagination)
-                : $this->submissions->listByAssignment((int) $assignment['id'], $pagination),
+            'submissions' => $submissions,
+            'filesMap' => $this->submissions->listFilesForSubmissions(
+                array_map('intval', array_column($submissions, 'id'))
+            ),
             'pagination' => $pagination,
         ]);
     }
@@ -580,22 +588,6 @@ final class AssignmentController extends BaseController
             $this->notFound('作业不存在。');
         }
         return $assignment;
-    }
-
-    /** 将 $_FILES['attachments'] 归一化为逐文件数组 */
-    private function normalizedUploads(array $files): array
-    {
-        $out = [];
-        foreach ((array) ($files['name'] ?? []) as $i => $name) {
-            $out[] = [
-                'name' => (string) $name,
-                'type' => (string) ($files['type'][$i] ?? ''),
-                'tmp_name' => (string) ($files['tmp_name'][$i] ?? ''),
-                'error' => (int) ($files['error'][$i] ?? UPLOAD_ERR_NO_FILE),
-                'size' => (int) ($files['size'][$i] ?? 0),
-            ];
-        }
-        return $out;
     }
 
     private function teacherMaxSize(): int

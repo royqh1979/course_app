@@ -48,7 +48,7 @@ final class ExportService
             $sheet->setCellValueExplicit([5, $r], $submitted ? '已提交' : '未提交', DataType::TYPE_STRING);
             $sheet->setCellValueExplicit([6, $r], $submitted ? ((bool) $row['is_late'] ? '迟交' : '按时') : '', DataType::TYPE_STRING);
             $sheet->setCellValueExplicit([7, $r], (string) ($row['last_submitted_at'] ?? ''), DataType::TYPE_STRING);
-            $sheet->setCellValueExplicit([8, $r], (string) ($row['original_name'] ?? ''), DataType::TYPE_STRING);
+            $sheet->setCellValueExplicit([8, $r], (string) ($row['file_names'] ?? ''), DataType::TYPE_STRING);
             // 未批改分数显示为空白（小组作业时全组共享同一分数）
             $sheet->setCellValueExplicit(
                 [9, $r],

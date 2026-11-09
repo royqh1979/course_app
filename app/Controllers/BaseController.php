@@ -73,4 +73,33 @@ abstract class BaseController
     {
         return $_SERVER['HTTP_USER_AGENT'] ?? '';
     }
+
+    /** 将 $_FILES['x']（单文件或多文件数组结构）归一化为逐文件数组 */
+    protected function normalizedUploads(array $files): array
+    {
+        if (($files['name'] ?? null) === null) {
+            return [];
+        }
+        // 单文件结构：name 是字符串，整体作为一个文件
+        if (is_string($files['name'])) {
+            return [[
+                'name' => (string) $files['name'],
+                'type' => (string) ($files['type'] ?? ''),
+                'tmp_name' => (string) ($files['tmp_name'] ?? ''),
+                'error' => (int) ($files['error'] ?? UPLOAD_ERR_NO_FILE),
+                'size' => (int) ($files['size'] ?? 0),
+            ]];
+        }
+        $out = [];
+        foreach ((array) $files['name'] as $i => $name) {
+            $out[] = [
+                'name' => (string) $name,
+                'type' => (string) ($files['type'][$i] ?? ''),
+                'tmp_name' => (string) ($files['tmp_name'][$i] ?? ''),
+                'error' => (int) ($files['error'][$i] ?? UPLOAD_ERR_NO_FILE),
+                'size' => (int) ($files['size'][$i] ?? 0),
+            ];
+        }
+        return $out;
+    }
 }

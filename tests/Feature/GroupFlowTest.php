@@ -176,7 +176,7 @@ final class GroupFlowTest extends FeatureTestCase
         // 组员提交被拒（页面提示 + 服务端拒绝）
         $memberPage = $member->get('/?r=student/assignment&id=' . $assignmentId);
         $this->assertStringContainsString('只有组长能提交小组作业', $memberPage->body);
-        $member->upload('/?r=student/submissions/submit', 'file', $this->makeZip(), '李四.zip', [
+        $member->upload('/?r=student/submissions/submit', 'files[]', $this->makeZip(), '李四.zip', [
             '_csrf' => $memberPage->csrfToken() ?? '',
             'assignment_id' => (string) $assignmentId,
         ]);
@@ -185,13 +185,14 @@ final class GroupFlowTest extends FeatureTestCase
         // 组长提交成功
         $leaderPage = $leader->get('/?r=student/assignment&id=' . $assignmentId);
         $this->assertStringNotContainsString('只有组长能提交小组作业', $leaderPage->body);
-        $leader->upload('/?r=student/submissions/submit', 'file', $this->makeZip(), '火箭队作业.zip', [
+        $leader->upload('/?r=student/submissions/submit', 'files[]', $this->makeZip(), '火箭队作业.zip', [
             '_csrf' => $leaderPage->csrfToken() ?? '',
             'assignment_id' => (string) $assignmentId,
         ]);
-        $sub = (new SubmissionRepository())->findByAssignmentAndGroup($assignmentId, $groupId);
+        $subRepo = new SubmissionRepository();
+        $sub = $subRepo->findByAssignmentAndGroup($assignmentId, $groupId);
         $this->assertNotNull($sub);
-        $this->assertSame('火箭队作业.zip', $sub['original_name']);
+        $this->assertSame('火箭队作业.zip', $subRepo->listFiles((int) $sub['id'])[0]['original_name']);
 
         // 组员看到组提交与状态
         $memberPage = $member->get('/?r=student/assignment&id=' . $assignmentId);
@@ -211,7 +212,7 @@ final class GroupFlowTest extends FeatureTestCase
 
         $page = $leader->get('/?r=student/assignment&id=' . $assignmentId);
         $this->assertStringContainsString('小组成员不足 2 人', $page->body);
-        $leader->upload('/?r=student/submissions/submit', 'file', $this->makeZip(), '作业.zip', [
+        $leader->upload('/?r=student/submissions/submit', 'files[]', $this->makeZip(), '作业.zip', [
             '_csrf' => $page->csrfToken() ?? '',
             'assignment_id' => (string) $assignmentId,
         ]);
@@ -235,7 +236,7 @@ final class GroupFlowTest extends FeatureTestCase
             mkdir(dirname($storage . '/' . $storedPath), 0750, true);
         }
         copy($this->makeZip(), $storage . '/' . $storedPath);
-        $subId = $submissions->insert($assignmentId, $leader, $files->create([
+        $subId = $submissions->insertWithFile($assignmentId, $leader, $files->create([
             'original_name' => '火箭队作业.zip',
             'stored_path' => $storedPath,
             'extension' => 'zip', 'mime_type' => 'application/zip', 'size' => 100, 'sha256' => str_repeat('a', 64),

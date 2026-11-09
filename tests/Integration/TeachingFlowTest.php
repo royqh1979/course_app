@@ -140,17 +140,21 @@ final class TeachingFlowTest extends DatabaseTestCase
         $assignmentId = $assignments->create($courseId, $this->makeAssignmentData([
             'deadline_at' => date('Y-m-d H:i:s', time() + 3600),
         ]));
-        $submissions->insert($assignmentId, $studentId, $this->makeFile($files));
+        $submissions->insertWithFile($assignmentId, $studentId, $this->makeFile($files));
         $sub = $submissions->findByAssignmentAndStudent($assignmentId, $studentId);
         $this->assertSame(0, (int) $sub['is_late'], '截止前提交不算迟交');
         $firstAt = $sub['first_submitted_at'];
 
         // 重新提交：保留首次时间，替换文件
         $newFileId = $this->makeFile($files, 'v2.zip');
-        $submissions->replace((int) $sub['id'], $newFileId);
+        $submissions->markResubmitted((int) $sub['id']);
+        foreach ($submissions->clearFiles((int) $sub['id']) as $oldFileId) {
+            $files->deleteIfUnused($oldFileId);
+        }
+        $submissions->addFile((int) $sub['id'], $newFileId);
         $sub = $submissions->findByAssignmentAndStudent($assignmentId, $studentId);
         $this->assertSame($firstAt, $sub['first_submitted_at']);
-        $this->assertSame('v2.zip', $sub['original_name']);
+        $this->assertSame('v2.zip', $submissions->listFiles((int) $sub['id'])[0]['original_name']);
 
         // 改期为过去：同一提交实时计算变为迟交（无需重算）
         $assignments->update($assignmentId, $this->makeAssignmentData([
@@ -179,7 +183,7 @@ final class TeachingFlowTest extends DatabaseTestCase
         $assignmentId = $assignments->create($courseId, $this->makeAssignmentData([
             'deadline_at' => date('Y-m-d H:i:s', time() - 60),
         ]));
-        $submissions->insert($assignmentId, $studentId, $this->makeFile($files));
+        $submissions->insertWithFile($assignmentId, $studentId, $this->makeFile($files));
         $sub = $submissions->findByAssignmentAndStudent($assignmentId, $studentId);
         $this->assertSame(1, (int) $sub['is_late'], '截止后提交（补交）应计算为迟交');
     }
@@ -195,7 +199,7 @@ final class TeachingFlowTest extends DatabaseTestCase
         $courseId = $courses->create('数据结构', null, '', null);
         $studentId = $students->create('2024001', '张三', PasswordService::hash('password-123'));
         $assignmentId = $assignments->create($courseId, $this->makeAssignmentData());
-        $subId = $submissions->insert($assignmentId, $studentId, $this->makeFile($files));
+        $subId = $submissions->insertWithFile($assignmentId, $studentId, $this->makeFile($files));
 
         $sub = $submissions->findByAssignmentAndStudent($assignmentId, $studentId);
         $this->assertNull($sub['graded_at'], '未批改时 graded_at 为空');
@@ -229,14 +233,15 @@ final class TeachingFlowTest extends DatabaseTestCase
         $assignmentId = $assignments->create($courseId, $this->makeAssignmentData([
             'deadline_at' => date('Y-m-d H:i:s', time() - 60),
         ]));
-        $submissions->insert($assignmentId, $s1, $this->makeFile($files, '张三.zip'));
-        $submissions->insert($assignmentId, $s2, $this->makeFile($files, '李四.zip'));
+        $submissions->insertWithFile($assignmentId, $s1, $this->makeFile($files, '张三.zip'));
+        $submissions->insertWithFile($assignmentId, $s2, $this->makeFile($files, '李四.zip'));
 
         $list = $submissions->listByAssignment($assignmentId);
         $this->assertCount(2, $list);
         $this->assertSame('2024001', $list[0]['student_no'], '按学号排序');
         $this->assertSame('张三', $list[0]['student_name']);
-        $this->assertSame('张三.zip', $list[0]['original_name']);
+        $this->assertSame('张三.zip', $list[0]['file_names']);
+        $this->assertSame(1, (int) $list[0]['file_count']);
         $this->assertSame(1, (int) $list[0]['is_late'], '迟交实时计算一并返回');
     }
 }

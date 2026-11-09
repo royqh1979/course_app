@@ -107,7 +107,7 @@ final class PaginationTest extends DatabaseTestCase
                 'size' => 1,
                 'sha256' => str_repeat('a', 64),
             ]);
-            $submissions->insert($assignmentId, $sid, $fileId);
+            $submissions->insertWithFile($assignmentId, $sid, $fileId);
         }
 
         $this->assertSame(25, $submissions->countByAssignment($assignmentId));

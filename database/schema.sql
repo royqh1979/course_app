@@ -128,12 +128,12 @@ CREATE TABLE IF NOT EXISTS assignment_attachments (
 
 -- 迟交不存标志，统一按 (assignments.deadline_at 非空 且 last_submitted_at > deadline_at) 实时计算
 -- 批改（graded_at 非空）后该提交锁定：学生不能再重交；教师可随时修改批改结果（graded_at 随之刷新）
+-- 一次提交可含多个文件，文件挂在 submission_files（重交替换整组文件）
 CREATE TABLE IF NOT EXISTS submissions (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     assignment_id INT UNSIGNED NOT NULL,
     student_id INT UNSIGNED NOT NULL,
     group_id INT UNSIGNED DEFAULT NULL,
-    file_id INT UNSIGNED NOT NULL,
     score INT UNSIGNED DEFAULT NULL,
     comment TEXT,
     graded_at DATETIME DEFAULT NULL,
@@ -142,8 +142,16 @@ CREATE TABLE IF NOT EXISTS submissions (
     UNIQUE KEY uq_submissions_assignment_student (assignment_id, student_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS submission_files (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    submission_id INT UNSIGNED NOT NULL,
+    file_id INT UNSIGNED NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_submission_files_submission (submission_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- 备课区（模板库）：导入课程 = 复制业务行、共享同一 files 行（file_id 引用）
--- files 行仅当被 5 张引用表（handouts/assignment_attachments/submissions/library_handouts/library_assignment_attachments）都不再引用时才删除
+-- files 行仅当被 5 张引用表（handouts/assignment_attachments/submission_files/library_handouts/library_assignment_attachments）都不再引用时才删除
 -- folder_id 指向 library_folders（按 item_type 分“课件/作业”两棵独立树），NULL = 根目录
 CREATE TABLE IF NOT EXISTS library_handouts (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

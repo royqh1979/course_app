@@ -74,7 +74,7 @@ final class GradingFlowTest extends FeatureTestCase
         $student = new HttpClient(self::$baseUrl);
         $this->login($student, 'student', '2024001', 'student-pass-123');
         $page = $student->get('/?r=student/assignment&id=' . $assignmentId);
-        $student->upload('/?r=student/submissions/submit', 'file', $this->makeZip(), '作业.zip', [
+        $student->upload('/?r=student/submissions/submit', 'files[]', $this->makeZip(), '作业.zip', [
             '_csrf' => $page->csrfToken() ?? '',
             'assignment_id' => (string) $assignmentId,
         ]);
@@ -139,13 +139,14 @@ final class GradingFlowTest extends FeatureTestCase
 
         // 批改后学生不能再重交（服务端拒绝，提交记录与文件不变）
         $page = $student->get('/?r=student/assignment&id=' . $assignmentId);
-        $this->assertStringNotContainsString('name="file"', $page->body, '已批改后不再显示提交表单');
-        $student->upload('/?r=student/submissions/submit', 'file', $this->makeZip('v2'), '作业v2.zip', [
+        $this->assertStringNotContainsString('name="files[]"', $page->body, '已批改后不再显示提交表单');
+        $student->upload('/?r=student/submissions/submit', 'files[]', $this->makeZip('v2'), '作业v2.zip', [
             '_csrf' => $page->csrfToken() ?? '',
             'assignment_id' => (string) $assignmentId,
         ]);
         $sub = $submissions->findByAssignmentAndStudent($assignmentId, 1);
-        $this->assertSame('作业.zip', $sub['original_name'], '已批改的提交不能被替换');
+        $files = $submissions->listFiles((int) $sub['id']);
+        $this->assertSame('作业.zip', $files[0]['original_name'], '已批改的提交不能被替换');
     }
 
     public function testTeacherCanUpdateGrade(): void

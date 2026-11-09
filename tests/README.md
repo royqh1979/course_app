@@ -20,8 +20,7 @@
 | 6. 未发布讲义和草稿作业不对学生可见 | `Feature/HandoutFlowTest::testHandoutPublishFlowAndStudentDownload`、`Feature/SubmissionFlowTest::testAssignmentPublishAndVisibleToStudent`、`Integration/TeachingFlowTest` | ✅ 已覆盖 |
 | 7. 不允许的文件后缀和超大文件会被拒绝 | `Unit/FileStorageTest`、`Feature/HandoutFlowTest::testHandoutRejectsBadExtension`、`Feature/SubmissionFlowTest::testSubmitRejectsBadExtensionAndOversize` | ✅ 已覆盖 |
 | 8. 磁盘文件 UUID v7 命名，数据库保留原始文件名 | `Unit/FileStorageTest::testStoreGeneratesUuidV7NameAndMetadata`、`Feature/HandoutFlowTest`、`Feature/SubmissionFlowTest::testSubmitAndResubmitKeepsOnlyLatest` | ✅ 已覆盖 |
-| 9. 学生重复提交后教师看到最新有效提交 | `Feature/SubmissionFlowTest::testSubmitAndResubmitKeepsOnlyLatest`、`Integration/TeachingFlowTest::testSubmissionInsertReplaceAndLateComputed` | ✅ 已覆盖 |
-| 10. 未注册但列入名单的学生出现在未提交名单 | `Integration/StatsExportTest::testStatsBasedOnCurrentRosterIncludingUnregistered`、`Feature/StatsExportFlowTest::testStatsPageShowsRosterBasedNumbers` | ✅ 已覆盖 |
+| 9. 学生重复提交后教师看到最新有效提交 | `Feature/SubmissionFlowTest::testSubmitAndResubmitKeepsOnlyLatest`、`testSubmitMultipleFilesAtOnce`、`testSubmitMultipleFilesRejectsWholeBatchOnBadFile`、`Integration/TeachingFlowTest::testSubmissionInsertReplaceAndLateComputed` | ✅ 已覆盖 || 10. 未注册但列入名单的学生出现在未提交名单 | `Integration/StatsExportTest::testStatsBasedOnCurrentRosterIncludingUnregistered`、`Feature/StatsExportFlowTest::testStatsPageShowsRosterBasedNumbers` | ✅ 已覆盖 |
 | 11. Excel 导出人数与页面统计一致 | `Feature/StatsExportFlowTest::testExcelExportMatchesStats` | ✅ 已覆盖 |
 | 12. ZIP 包含全部有效提交，文件名不冲突 | `Feature/StatsExportFlowTest::testZipContainsAllSubmissionsWithFormattedNames`、`testZipEntryNameCollisionGetsSuffix` | ✅ 已覆盖 |
 | 13. 登录和密码操作均有日志，日志不包含密码 | `Integration/AuthServiceTest::testAuthLogsNeverContainPassword`、`Integration/LogRepositoryTest` | ✅ 已覆盖 |
@@ -37,3 +36,5 @@
 | 备课区页面拆分（课件/作业两个独立页、历史 500 修复后页面渲染断言） | `Feature/LibraryFlowTest::testFolderOrganizeFlow`、`testAssignmentTemplatePagesRenderAndCreate` |
 | 课程页四拆分（讲义/作业/名单/分组独立分页）与学生课程三拆分 | `Feature/PaginationFlowTest`、`Feature/PermissionTest`、`Feature/GroupFlowTest`（各页 200 断言） |
 | 密码强度策略（注册/改密/CLI：≥8 位、字母+数字+符号、仅 ASCII 可见字符；页面可见提示） | `Unit/PasswordServiceTest::testValidatePolicy*`、`Feature/RegistrationTest::testRegisterRejectsWeakPasswords`、`Feature/PasswordChangeTest::testChangePasswordRejectsWeakNewPassword` |
+| 学生提交多附件（一次提交多文件、整单事务、重交整体替换、按文件下载权限复检） | `Feature/SubmissionFlowTest::testSubmitMultipleFilesAtOnce`、`testSubmitMultipleFilesRejectsWholeBatchOnBadFile`、`Feature/GradingFlowTest`、`Integration/TeachingFlowTest::testListByAssignmentForGrading` |
+| 测试存储隔离（`APP_ENV=test` 走临时存储目录，测试不得触碰生产 storage） | 全部 feature/integration 用例（`config.php` 环境分支 + phpunit.xml `APP_ENV=test`） |

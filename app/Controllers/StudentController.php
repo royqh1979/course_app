@@ -125,13 +125,14 @@ final class StudentController extends BaseController
             'assignment' => $assignment,
             'attachments' => $this->attachments->listByAssignment((int) $assignment['id']),
             'submission' => $submission,
+            'submissionFiles' => $submission !== null ? $this->submissions->listFiles((int) $submission['id']) : [],
             'submitBlock' => $block,
             'myGroup' => $myGroup,
         ]);
     }
 
     /**
-     * 提交/重新提交作业。
+     * 提交/重新提交作业：一次可含多个文件（整体作为一个提交，任一文件不合格整单拒绝）。
      * 规则链：课程权限 → 课程未归档 → 作业已发布未关闭 → 到开始时间 → 截止判断
      * （默认允许补交：截止后仍可提交并自动判为迟交；教师关闭补交后截止即拒绝）。
      */
@@ -166,34 +167,57 @@ final class StudentController extends BaseController
             redirect('?r=student/assignment&id=' . $assignment['id']);
         }
 
-        $extensions = array_filter(array_map('trim', explode(',', (string) $assignment['allowed_extensions'])));
+        $extensions = array_values(array_filter(array_map('trim', explode(',', (string) $assignment['allowed_extensions']))));
+        // 多文件 files[] 为主，单文件 file 兼容旧客户端/测试
+        $uploads = array_values(array_filter(
+            $this->normalizedUploads($_FILES['files'] ?? $_FILES['file'] ?? []),
+            static fn (array $f): bool => $f['error'] !== UPLOAD_ERR_NO_FILE
+        ));
         try {
-            $result = $this->storage->transactional(function () use ($assignment, $course, $user, $existing, $extensions, $myGroup) {
-                $meta = $this->storage->store(
-                    $_FILES['file'] ?? [],
-                    'courses/' . $course['id'] . '/assignments/' . $assignment['id'] . '/submissions',
-                    array_values($extensions),
-                    (int) $assignment['max_file_size']
-                );
+            $result = $this->storage->transactional(function () use ($assignment, $course, $user, $existing, $extensions, $myGroup, $uploads) {
+                if ($uploads === []) {
+                    throw new RuntimeException('请选择要提交的文件。');
+                }
+                $dir = 'courses/' . $course['id'] . '/assignments/' . $assignment['id'] . '/submissions';
+                // 先全部存盘（事务内登记，异常自动补偿删除已存文件）
+                $metas = [];
+                foreach ($uploads as $file) {
+                    $metas[] = $this->storage->store($file, $dir, $extensions, (int) $assignment['max_file_size']);
+                }
                 // 先保存新文件并更新数据库，提交成功后旧文件引用归零才清理
-                $oldPath = Database::transaction(function () use ($meta, $assignment, $user, $existing, $myGroup) {
-                    $fileId = $this->files->create($meta);
+                $oldPaths = Database::transaction(function () use ($metas, $assignment, $user, $existing, $myGroup) {
                     if ($existing === null) {
-                        $this->submissions->insert(
+                        $submissionId = $this->submissions->insert(
                             (int) $assignment['id'],
                             (int) $user['id'],
-                            $fileId,
                             $myGroup !== null ? (int) $myGroup['id'] : null
                         );
-                        return null;
+                        $oldFileIds = [];
+                    } else {
+                        $submissionId = (int) $existing['id'];
+                        $this->submissions->markResubmitted($submissionId);
+                        $oldFileIds = $this->submissions->clearFiles($submissionId);
                     }
-                    $this->submissions->replace((int) $existing['id'], $fileId);
-                    return $this->files->deleteIfUnused((int) $existing['file_id']);
+                    foreach ($metas as $meta) {
+                        $fileId = $this->files->create($meta);
+                        $this->submissions->addFile($submissionId, $fileId);
+                    }
+                    $oldPaths = [];
+                    foreach ($oldFileIds as $oldFileId) {
+                        $oldPath = $this->files->deleteIfUnused($oldFileId);
+                        if ($oldPath !== null) {
+                            $oldPaths[] = $oldPath;
+                        }
+                    }
+                    return $oldPaths;
                 });
-                if ($oldPath !== null) {
+                foreach ($oldPaths as $oldPath) {
                     $this->storage->delete($oldPath);
                 }
-                return ['resubmitted' => $existing !== null, 'original_name' => $meta['original_name']];
+                return [
+                    'resubmitted' => $existing !== null,
+                    'names' => array_map(static fn (array $m): string => (string) $m['original_name'], $metas),
+                ];
             });
         } catch (RuntimeException $e) {
             if ($this->wantsJson()) {
@@ -203,9 +227,10 @@ final class StudentController extends BaseController
             redirect('?r=student/assignment&id=' . $assignment['id']);
         }
 
+        $nameText = implode('、', $result['names']);
         $message = $result['resubmitted']
-            ? "《{$result['original_name']}》上传成功，已替换旧提交。"
-            : "《{$result['original_name']}》上传成功。";
+            ? "已重新提交 {$nameText}，旧文件已替换。"
+            : "已提交 {$nameText}。";
         if ($this->wantsJson()) {
             $this->jsonResponse(true, $message, '?r=student/assignment&id=' . $assignment['id']);
         }

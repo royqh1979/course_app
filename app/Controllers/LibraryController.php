@@ -920,22 +920,6 @@ final class LibraryController extends BaseController
         return $options;
     }
 
-    /** 将 $_FILES['attachments'] 归一化为逐文件数组 */
-    private function normalizedUploads(array $files): array
-    {
-        $out = [];
-        foreach ((array) ($files['name'] ?? []) as $i => $name) {
-            $out[] = [
-                'name' => (string) $name,
-                'type' => (string) ($files['type'][$i] ?? ''),
-                'tmp_name' => (string) ($files['tmp_name'][$i] ?? ''),
-                'error' => (int) ($files['error'][$i] ?? UPLOAD_ERR_NO_FILE),
-                'size' => (int) ($files['size'][$i] ?? 0),
-            ];
-        }
-        return $out;
-    }
-
     private function teacherMaxSize(): int
     {
         return (int) App::config('upload.teacher_max_size', 50 * 1024 * 1024);

@@ -54,7 +54,7 @@ final class FileRepository
         $stmt = $this->db()->prepare(
             'SELECT (SELECT COUNT(*) FROM handouts WHERE file_id = :id1)
                   + (SELECT COUNT(*) FROM assignment_attachments WHERE file_id = :id2)
-                  + (SELECT COUNT(*) FROM submissions WHERE file_id = :id3)
+                  + (SELECT COUNT(*) FROM submission_files WHERE file_id = :id3)
                   + (SELECT COUNT(*) FROM library_handouts WHERE file_id = :id4)
                   + (SELECT COUNT(*) FROM library_assignment_attachments WHERE file_id = :id5)'
         );

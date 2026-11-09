@@ -54,8 +54,14 @@
         <td><?= $submitted ? e($row['last_submitted_at']) : '—' ?></td>
         <td>
             <?php if ($submitted): ?>
-                <a href="?r=submission/download&id=<?= (int) $row['submission_id'] ?>"><?= e($row['original_name']) ?></a>
-                <span class="text-muted">（<?= e(format_size((int) $row['size'])) ?>）</span>
+                <?php $rowFiles = $filesMap[(int) $row['submission_id']] ?? []; ?>
+                <?php foreach ($rowFiles as $sf): ?>
+                <div>
+                    <a href="?r=submission/download&id=<?= (int) $sf['id'] ?>"><?= e($sf['original_name']) ?></a>
+                    <span class="text-muted">（<?= e(format_size((int) $sf['size'])) ?>）</span>
+                </div>
+                <?php endforeach; ?>
+                <?php if ($rowFiles === []): ?><span class="text-muted">—</span><?php endif; ?>
             <?php else: ?>—<?php endif; ?>
         </td>
         <td>

@@ -12,7 +12,11 @@ $config = [
         'pass' => '',
         'charset' => 'utf8mb4',
     ],
-    'storage_path' => dirname(__DIR__) . '/storage',
+    // 测试环境（APP_ENV=test，phpunit.xml 与测试服务器统一设置）必须使用独立临时存储，
+    // 否则测试清理逻辑会删除生产 storage 里的真实上传文件（事故教训：2026-11）。
+    'storage_path' => getenv('APP_ENV') === 'test'
+        ? sys_get_temp_dir() . '/course_app_test_storage'
+        : dirname(__DIR__) . '/storage',
     'app' => [
         // 站点对外地址（生成注册二维码等绝对链接用），如 https://course.example.com 或 http://192.168.1.10:8080
         // 留空则按当前请求自动推导

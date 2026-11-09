@@ -126,7 +126,7 @@ final class GroupAssignmentTest extends DatabaseTestCase
             'size' => 100,
             'sha256' => str_repeat('a', 64),
         ]);
-        $submissions->insert($assignmentId, $leader, $fileId, $groupId);
+        $submissions->insertWithFile($assignmentId, $leader, $fileId, $groupId);
 
         $summary = $submissions->statsSummaryGroup($assignmentId);
         $this->assertSame(['total' => 3, 'submitted' => 2, 'late' => 0], $summary);
@@ -166,7 +166,7 @@ final class GroupAssignmentTest extends DatabaseTestCase
             'allowed_extensions' => 'zip', 'max_file_size' => 1024, 'allow_late' => true, 'is_group' => true,
         ]);
         $groupId = $this->groups->create($courseId, '火箭队', $leader);
-        $submissions->insert($assignmentId, $leader, $files->create([
+        $submissions->insertWithFile($assignmentId, $leader, $files->create([
             'original_name' => '组作业.zip',
             'stored_path' => 'courses/1/x/' . bin2hex(random_bytes(8)) . '.zip',
             'extension' => 'zip', 'mime_type' => 'application/zip', 'size' => 1, 'sha256' => str_repeat('a', 64),
@@ -194,7 +194,7 @@ final class GroupAssignmentTest extends DatabaseTestCase
         $groupId = $this->groups->create($courseId, '第一组', $leader);
         $this->assertFalse($this->groups->hasSubmissions($groupId));
 
-        $submissions->insert($assignmentId, $leader, $files->create([
+        $submissions->insertWithFile($assignmentId, $leader, $files->create([
             'original_name' => 'a.zip', 'stored_path' => 'courses/1/x/' . bin2hex(random_bytes(8)) . '.zip',
             'extension' => 'zip', 'mime_type' => 'application/zip', 'size' => 1, 'sha256' => str_repeat('a', 64),
         ]), $groupId);
