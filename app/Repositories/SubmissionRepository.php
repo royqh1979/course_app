@@ -131,6 +131,34 @@ final class SubmissionRepository
         return $row ?: null;
     }
 
+    /**
+     * 学生在某课程下全部提交的 Map（assignment_id => 提交行，含 is_late），
+     * 供作业列表标注已交/未交：个人作业按 student_id，小组作业按其所在小组（未入组传 null）。
+     *
+     * @return array<int, array>
+     */
+    public function mapByCourseForStudent(int $courseId, int $studentId, ?int $groupId): array
+    {
+        $sql = 'SELECT s.assignment_id, s.last_submitted_at, a.deadline_at, '
+            . self::LATE_EXPR . ' AS is_late
+             FROM submissions s
+             INNER JOIN assignments a ON a.id = s.assignment_id
+             WHERE a.course_id = :course_id AND (s.student_id = :student_id';
+        $params = ['course_id' => $courseId, 'student_id' => $studentId];
+        if ($groupId !== null) {
+            $sql .= ' OR s.group_id = :group_id';
+            $params['group_id'] = $groupId;
+        }
+        $sql .= ')';
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute($params);
+        $map = [];
+        foreach ($stmt->fetchAll() as $row) {
+            $map[(int) $row['assignment_id']] = $row;
+        }
+        return $map;
+    }
+
     /** 首次提交：插入新记录（小组作业带 group_id），文件随后经 addFile 挂入 */
     public function insert(int $assignmentId, int $studentId, ?int $groupId = null): int
     {

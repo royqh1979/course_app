@@ -65,8 +65,16 @@ final class StudentController extends BaseController
     public function assignments(): void
     {
         $data = $this->coursePageData('assignments');
+        $user = $this->requireUser(AuthService::TYPE_STUDENT);
+        $courseId = (int) $data['course']['id'];
+        $myGroup = $this->groups->activeGroupOfStudent($courseId, (int) $user['id']);
         View::render('student/course_assignments', $data + [
-            'assignments' => $this->assignments->listByCourse((int) $data['course']['id'], true),
+            'assignments' => $this->assignments->listByCourse($courseId, true),
+            'submissionMap' => $this->submissions->mapByCourseForStudent(
+                $courseId,
+                (int) $user['id'],
+                $myGroup !== null ? (int) $myGroup['id'] : null
+            ),
         ]);
     }
 

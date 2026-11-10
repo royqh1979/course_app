@@ -14,6 +14,15 @@
             <?php if ($assignment['status'] === 'closed'): ?>
                 <span class="badge bg-secondary ms-2">已关闭</span>
             <?php endif; ?>
+            <?php if (isset($submissionMap[(int) $assignment['id']])): ?>
+                <?php if ((int) $submissionMap[(int) $assignment['id']]['is_late'] === 1): ?>
+                    <span class="badge bg-warning text-dark ms-2">迟交</span>
+                <?php else: ?>
+                    <span class="badge bg-success ms-2">已提交</span>
+                <?php endif; ?>
+            <?php else: ?>
+                <span class="badge text-bg-light ms-2">未提交</span>
+            <?php endif; ?>
         </span>
         <span class="text-muted small text-nowrap ms-2">
             <?= $assignment['deadline_at'] !== null ? '截止 ' . e($assignment['deadline_at']) : '无截止时间' ?>
