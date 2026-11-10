@@ -10,7 +10,7 @@ use RuntimeException;
 use ZipArchive;
 
 /**
- * 文件存储：校验顺序（后缀 → 大小 → MIME）、UUID v7 命名、元数据（验收标准 7、8 的核心逻辑）。
+ * 文件存储：校验顺序（后缀 → 大小；MIME 仅记录）、UUID v7 命名、元数据（验收标准 7、8 的核心逻辑）。
  * 使用临时目录，不依赖数据库。
  */
 final class FileStorageTest extends TestCase
@@ -111,12 +111,11 @@ final class FileStorageTest extends TestCase
         $this->storage->store($this->fakeUpload($zip, 'big.zip'), 'courses/1/handouts', ['zip'], 10);
     }
 
-    public function testRejectsMimeMismatch(): void
+    public function testMimeMismatchStillAccepted(): void
     {
-        // 内容是 zip 却伪装成 pdf
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('不符');
-        $this->storage->store($this->fakeUpload($this->makeZip(), 'fake.pdf'), 'courses/1/handouts', ['pdf'], 1024 * 1024);
+        // 内容是 zip 却命名为 pdf：MIME 不作校验只作记录（后缀白名单已拦截可执行类型）
+        $meta = $this->storage->store($this->fakeUpload($this->makeZip(), 'fake.pdf'), 'courses/1/handouts', ['pdf'], 1024 * 1024);
+        $this->assertSame('application/zip', $meta['mime_type']);
     }
 
     public function testRejectsUploadError(): void
@@ -125,7 +124,7 @@ final class FileStorageTest extends TestCase
         $this->storage->store($this->fakeUpload('/nonexistent', 'a.zip', UPLOAD_ERR_NO_FILE), 'courses/1/handouts', ['zip'], 1024);
     }
 
-    public function testPdfPassesMimeCheck(): void
+    public function testPdfMimeRecorded(): void
     {
         $meta = $this->storage->store($this->fakeUpload($this->makePdf(), '讲义.pdf'), 'courses/1/handouts', ['pdf'], 1024 * 1024);
         $this->assertSame('application/pdf', $meta['mime_type']);

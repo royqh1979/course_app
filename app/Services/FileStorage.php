@@ -10,23 +10,11 @@ use RuntimeException;
 
 /**
  * 私有文件存储：磁盘文件名 = UUID v7 + 白名单校验后的扩展名。
- * 校验顺序：后缀白名单 → 大小限制 → MIME 检查（finfo）。
+ * 校验顺序：后缀白名单 → 大小限制（MIME 仅记录不校验，见 store()）。
  * 所有私有文件经 PHP 下载程序输出，不暴露 UUID 文件名。
  */
 final class FileStorage
 {
-    /** 各允许后缀对应的 MIME 白名单（finfo 检测结果） */
-    private const MIME_MAP = [
-        'doc' => ['application/msword', 'application/octet-stream'],
-        'docx' => ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/zip'],
-        'xls' => ['application/vnd.ms-excel', 'application/octet-stream'],
-        'xlsx' => ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/zip'],
-        'ppt' => ['application/vnd.ms-powerpoint', 'application/octet-stream'],
-        'pptx' => ['application/vnd.openxmlformats-officedocument.presentationml.presentation', 'application/zip'],
-        'pdf' => ['application/pdf'],
-        'zip' => ['application/zip', 'application/x-zip-compressed', 'application/octet-stream'],
-    ];
-
     public function __construct(private readonly string $storagePath)
     {
     }
@@ -70,10 +58,10 @@ final class FileStorage
         if ((int) $file['size'] > $maxSize) {
             throw new RuntimeException('文件大小超过限制（最大 ' . (int) round($maxSize / 1024 / 1024) . ' MB）。');
         }
+        // MIME 仅作元数据记录（下载时的 Content-Type），不作校验：
+        // finfo 对部分正常 Office 文件（特殊 zip 布局/加密）会误判为 octet-stream，
+        // 安全性由后缀白名单 + 下载端 attachment/nosniff 保证。
         $mime = (string) (finfo_file(finfo_open(FILEINFO_MIME_TYPE), (string) $file['tmp_name']) ?: '');
-        if (!in_array($mime, self::MIME_MAP[$extension] ?? [], true)) {
-            throw new RuntimeException("文件内容类型（{$mime}）与扩展名 .{$extension} 不符。");
-        }
 
         $storedPath = trim($subdir, '/') . '/' . Uuid::uuid7()->toString() . '.' . $extension;
         $absolute = $this->absolutePath($storedPath);

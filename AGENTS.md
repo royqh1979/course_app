@@ -21,7 +21,7 @@
 
 **注册二维码与全站响应式已完成**：教师端 `?r=admin/qrcode` 展示注册二维码（服务端 SVG，地址取 `app.base_url` 配置或按请求推导）；全站响应式布局（可折叠导航、表格横向滚动）；Bootstrap CSS/JS 已本地化到 `public/assets/vendor/bootstrap/`，**全站不依赖任何外部公共库/CDN**。
 
-**第三阶段（文件与教学闭环）已完成**：`FileStorage`（UUID v7 命名、私有存储、后缀→大小→MIME 校验）、讲义上传/发布/下线/替换（先存新后删旧）、作业新建/编辑（任何时间可改截止时间）/发布/关闭与多附件、学生提交/重交/补交（默认允许补交）、三类文件统一下载权限复检。**迟交不存标志，统一按 `last_submitted_at > deadline_at` 实时计算**（`submissions.is_late` 列已从 schema 移除；旧开发库残留该列无害，可手动 DROP）。
+**第三阶段（文件与教学闭环）已完成**：`FileStorage`（UUID v7 命名、私有存储、后缀→大小校验，MIME 仅记录）、讲义上传/发布/下线/替换（先存新后删旧）、作业新建/编辑（任何时间可改截止时间）/发布/关闭与多附件、学生提交/重交/补交（默认允许补交）、三类文件统一下载权限复检。**迟交不存标志，统一按 `last_submitted_at > deadline_at` 实时计算**（`submissions.is_late` 列已从 schema 移除；旧开发库残留该列无害，可手动 DROP）。
 
 **作业批改已完成**：`?r=admin/assignments/submissions&id=` 提交列表内嵌批改表单（分数 0–100 / 评语，至少一项）；`submissions` 表含 `score/comment/graded_at`。**批改后该提交对学生锁定**（不能再重交，提交表单隐藏，服务端拒绝）；**教师可随时修改批改结果**（`graded_at` 刷新，审计区分 `submission.grade/regrade`）；学生作业页展示分数与评语。
 
@@ -104,7 +104,7 @@
 - 文件存磁盘不入库；`files` 表保存 `original_name`、`stored_path`（相对 `storage/`）、`extension`、`mime_type`、`size`、`sha256`（可选）、`created_at`。不存服务器绝对路径。
 - 磁盘文件名 = **UUID v7 + 白名单校验后的扩展名**；下载时不暴露 UUID 文件名。
 - 所有私有文件经 PHP 下载程序提供：检查登录 → 账号未归档 → 学生实时课程权限 → 文件归属关系 → 按 `stored_path` 定位 → 以原始文件名（或规定格式）输出。
-- 上传校验顺序：后缀白名单 → 大小限制 → MIME 检查；学生提交按后缀白名单（doc/docx/xls/xlsx/ppt/pptx/zip）判断。
+- 上传校验顺序：后缀白名单 → 大小限制；MIME 仅用 finfo 记录不作校验（误判率高，安全性由后缀白名单 + 下载端 attachment/nosniff 保证）；学生提交按后缀白名单（doc/docx/xls/xlsx/ppt/pptx/zip）判断。
 - 替换文件先存新后删旧；定期检查无数据库记录的孤立文件。
 - **文件多步写入必须走 `FileStorage::transactional()`**（DB 事务 + 新建文件补偿删除 + 旧文件延后删除）；一个物理文件 = `files` 一行，可多处 `file_id` 引用，删除走 `countReferences()` 引用计数。
 

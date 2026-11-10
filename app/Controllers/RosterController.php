@@ -25,14 +25,6 @@ final class RosterController extends BaseController
 
     private const IMPORT_EXTENSIONS = ['xlsx', 'xls'];
 
-    private const IMPORT_MIMES = [
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'application/vnd.ms-excel',
-        'application/zip',
-        'application/x-zip-compressed',
-        'application/octet-stream',
-    ];
-
     public function __construct(
         AuthService $auth,
         private readonly RosterRepository $roster,
@@ -234,7 +226,8 @@ final class RosterController extends BaseController
     }
 
     /**
-     * 保存上传文件到 storage/imports/，校验顺序：后缀白名单 → 大小 → MIME。
+     * 保存上传文件到 storage/imports/，校验顺序：后缀白名单 → 大小（MIME 不校验，
+     * 非 Excel 内容在后续 PhpSpreadsheet 解析时自然报错）。
      * 返回相对 storage/ 的路径。
      *
      * @throws RuntimeException 校验或保存失败（消息可直接展示给用户）
@@ -253,11 +246,6 @@ final class RosterController extends BaseController
         if ((int) $file['size'] > self::IMPORT_MAX_SIZE) {
             throw new RuntimeException('名单文件大小不能超过 5 MB。');
         }
-        $mime = (string) (finfo_file(finfo_open(FILEINFO_MIME_TYPE), (string) $file['tmp_name']) ?: '');
-        if (!in_array($mime, self::IMPORT_MIMES, true)) {
-            throw new RuntimeException('文件内容类型不符合 Excel 格式要求。');
-        }
-
         $storedPath = 'imports/' . Uuid::uuid7()->toString() . '.' . $extension;
         $absolute = $this->absolutePath($storedPath);
         if (!is_dir(dirname($absolute)) && !mkdir(dirname($absolute), 0750, true)) {
