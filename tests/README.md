@@ -5,7 +5,7 @@
 | 套件 | 目录 | 依赖 | 内容 |
 |---|---|---|---|
 | unit | `tests/Unit` | 无 | 纯逻辑：密码哈希、CSRF、输入校验、限流判定、名单 Excel 解析与预校验 |
-| integration | `tests/Integration` | `class_app_test` | Repository CRUD 与唯一约束、实时权限 SQL、日志写入、AuthService、名单增量导入与事务回滚、学生筛选/未匹配查询；每用例事务回滚 |
+| integration | `tests/Integration` | `class_app_test` | Repository CRUD 与唯一约束、实时权限 SQL、日志写入、AuthService、名单增量导入与事务回滚、学生筛选/未匹配查询；备份与孤立文件清理脚本使用隔离存储执行；普通 Repository 用例事务回滚 |
 | feature | `tests/Feature` | `class_app_test` + 内置服务器 | 完整 HTTP 流程：登录/退出/限流、学生注册、权限复检、CSRF、改密会话失效、名单 Excel 上传预校验与确认导入、学生账号管理、注册二维码、响应式导航与资源本地化、讲义上传发布与下载、作业发布与附件、学生提交/重交/补交、教师批改与批改后锁定、列表分页与设备默认条数、备课区课件/作业导入/存回与共享文件语义、备课区文件夹归类（建目录/深度限制/按目录浏览/导入选目录）、课程四页拆分（讲义/作业/名单/分组）与学生三页拆分的页面渲染与跳转、提交统计与 Excel/ZIP 导出、XHR 上传 JSON 分支、日志查看、小组作业全流程（建组/审批/上下限/组长提交/成绩共享） |
 
 ## 与首版验收标准的对照（需求方案第十一节）
@@ -38,3 +38,4 @@
 | 密码强度策略（注册/改密/CLI：≥8 位、字母+数字+符号、仅 ASCII 可见字符；页面可见提示） | `Unit/PasswordServiceTest::testValidatePolicy*`、`Feature/RegistrationTest::testRegisterRejectsWeakPasswords`、`Feature/PasswordChangeTest::testChangePasswordRejectsWeakNewPassword` |
 | 学生提交多附件（一次提交多文件、整单事务、重交整体替换、按文件下载权限复检） | `Feature/SubmissionFlowTest::testSubmitMultipleFilesAtOnce`、`testSubmitMultipleFilesRejectsWholeBatchOnBadFile`、`Feature/GradingFlowTest`、`Integration/TeachingFlowTest::testListByAssignmentForGrading` |
 | 测试存储隔离（`APP_ENV=test` 走临时存储目录，测试不得触碰生产 storage） | 全部 feature/integration 用例（`config.php` 环境分支 + phpunit.xml `APP_ENV=test`） |
+| 维护脚本（以 `www-data` 执行；备份包/日志可验证；备份与日志目录缺失或不可写时提前失败；多层目录中的已登记文件不会被误删） | `Integration/MaintenanceScriptTest` |

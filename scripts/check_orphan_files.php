@@ -43,7 +43,7 @@ $scan = function (string $dir, callable $onFile) use (&$scan): void {
     if (!is_dir($dir)) {
         return;
     }
-    foreach (glob($dir . '/*', GLOB_MARK) ?: [] as $path) {
+    foreach (glob($dir . '/*') ?: [] as $path) {
         if (is_dir($path)) {
             $scan($path, $onFile);
         } else {
