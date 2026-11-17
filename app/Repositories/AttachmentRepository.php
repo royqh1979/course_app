@@ -45,7 +45,7 @@ final class AttachmentRepository
     public function listByAssignment(int $assignmentId): array
     {
         $stmt = $this->db()->prepare(
-            'SELECT a.*, f.original_name, f.size
+            'SELECT a.*, f.original_name, f.stored_path, f.size
              FROM assignment_attachments a INNER JOIN files f ON f.id = a.file_id
              WHERE a.assignment_id = :assignment_id ORDER BY a.id'
         );

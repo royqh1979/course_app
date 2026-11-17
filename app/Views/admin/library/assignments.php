@@ -64,14 +64,36 @@
     <a class="btn btn-primary btn-sm" href="?r=admin/library/assignments/create<?= $currentFolderId !== null ? '&folder_id=' . (int) $currentFolderId : '' ?>">新建作业</a>
 </p>
 
+<form method="post" action="?r=admin/library/items/batch" id="library-assignment-batch" data-library-batch>
+    <?= Csrf::field() ?>
+    <input type="hidden" name="item_type" value="assignment">
+    <input type="hidden" name="return_folder_id" value="<?= $currentFolderId ?? '' ?>">
+</form>
+<div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-2">
+    <span class="small text-muted" data-batch-count="library-assignment-batch">勾选条目后可批量操作</span>
+    <div class="d-flex gap-1 flex-wrap">
+        <select class="form-select form-select-sm w-auto" name="folder_id" form="library-assignment-batch" aria-label="批量移动目标文件夹">
+            <option value=""<?= $currentFolderId === null ? ' selected' : '' ?>>根目录</option>
+            <?php foreach ($folderOptions as $option): ?>
+            <option value="<?= (int) $option['id'] ?>"<?= $currentFolderId === (int) $option['id'] ? ' selected' : '' ?>>
+                <?= str_repeat('　', $option['depth'] - 1) ?><?= e($option['name']) ?>
+            </option>
+            <?php endforeach; ?>
+        </select>
+        <button type="submit" name="action" value="move" form="library-assignment-batch" class="btn btn-sm btn-outline-primary" data-batch-submit="library-assignment-batch">批量移动</button>
+        <button type="submit" name="action" value="delete" form="library-assignment-batch" class="btn btn-sm btn-outline-danger"
+                data-batch-submit="library-assignment-batch" onclick="return confirm('确认删除所有选中的作业？已导入的课程副本不受影响。');">批量删除</button>
+    </div>
+</div>
 <div class="table-responsive">
 <table class="table table-sm table-striped align-middle">
     <thead>
-    <tr><th>标题</th><th>附件数</th><th>允许补交</th><th>更新时间</th><th>操作</th></tr>
+    <tr><th><input class="form-check-input" type="checkbox" data-check-all="library-assignment-batch" aria-label="全选本页作业"></th><th>标题</th><th>附件数</th><th>允许补交</th><th>更新时间</th><th>操作</th></tr>
     </thead>
     <tbody>
     <?php foreach ($assignments as $assignment): ?>
     <tr>
+        <td><input class="form-check-input" type="checkbox" name="ids[]" value="<?= (int) $assignment['id'] ?>" form="library-assignment-batch" data-batch-item="library-assignment-batch" aria-label="选择作业 <?= e($assignment['title']) ?>"></td>
         <td><?= e($assignment['title']) ?></td>
         <td><?= (int) $assignment['attachment_count'] ?></td>
         <td><?= (bool) $assignment['allow_late'] ? '允许' : '不允许' ?></td>
@@ -88,7 +110,7 @@
     </tr>
     <?php endforeach; ?>
     <?php if ($assignments === []): ?>
-    <tr><td colspan="5" class="text-muted">本文件夹暂无作业。</td></tr>
+    <tr><td colspan="6" class="text-muted">本文件夹暂无作业。</td></tr>
     <?php endif; ?>
     </tbody>
 </table>

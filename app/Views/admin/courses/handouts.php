@@ -48,7 +48,7 @@ $handoutStatus = ['draft' => ['草稿', 'secondary'], 'published' => ['已发布
     <tr>
         <td><?= e($handout['title']) ?></td>
         <td>
-            <a href="?r=handout/download&id=<?= (int) $handout['id'] ?>"><?= e($handout['original_name']) ?></a>
+            <?= file_download_link('handout/download', (int) $handout['id'], (string) $handout['original_name'], $handout['stored_path'] ?? null) ?>
             <span class="text-muted">（<?= e(format_size((int) $handout['size'])) ?>）</span>
         </td>
         <td><span class="badge bg-<?= e($statusColor) ?>"><?= e($statusText) ?></span></td>

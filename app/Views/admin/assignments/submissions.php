@@ -46,7 +46,7 @@
             <?php else: ?>
                 <?php foreach ($subFiles as $sf): ?>
                 <div>
-                    <a href="?r=submission/download&id=<?= (int) $sf['id'] ?>"><?= e($sf['original_name']) ?></a>
+                    <?= file_download_link('submission/download', (int) $sf['id'], (string) $sf['original_name'], $sf['stored_path'] ?? null) ?>
                     <span class="text-muted">（<?= e(format_size((int) $sf['size'])) ?>）</span>
                 </div>
                 <?php endforeach; ?>

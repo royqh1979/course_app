@@ -45,6 +45,12 @@ final class LibraryHandoutRepository
         ]);
     }
 
+    public function move(int $id, ?int $folderId): void
+    {
+        $stmt = $this->db()->prepare('UPDATE library_handouts SET folder_id = :folder_id WHERE id = :id');
+        $stmt->execute(['folder_id' => $folderId, 'id' => $id]);
+    }
+
     public function replaceFile(int $id, int $fileId): void
     {
         $stmt = $this->db()->prepare('UPDATE library_handouts SET file_id = :file_id WHERE id = :id');
@@ -85,7 +91,7 @@ final class LibraryHandoutRepository
     /** @return array<int, array> */
     public function listAll(?Pagination $pagination = null): array
     {
-        $sql = 'SELECT h.*, f.original_name, f.size
+        $sql = 'SELECT h.*, f.original_name, f.stored_path, f.size
                 FROM library_handouts h INNER JOIN files f ON f.id = h.file_id
                 ORDER BY h.title, h.id';
         if ($pagination !== null) {
@@ -110,7 +116,7 @@ final class LibraryHandoutRepository
     /** @return array<int, array> */
     public function listByFolder(?int $folderId, ?Pagination $pagination = null): array
     {
-        $sql = 'SELECT h.*, f.original_name, f.size
+        $sql = 'SELECT h.*, f.original_name, f.stored_path, f.size
                 FROM library_handouts h INNER JOIN files f ON f.id = h.file_id
                 WHERE h.folder_id <=> :folder_id
                 ORDER BY h.title, h.id';

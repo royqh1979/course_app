@@ -83,7 +83,7 @@ use App\Services\Csrf;
                 <?php foreach ($attachments as $att): ?>
                 <li class="list-group-item d-flex justify-content-between align-items-center px-0">
                     <span>
-                        <a href="?r=library/attachment/download&id=<?= (int) $att['id'] ?>"><?= e($att['original_name']) ?></a>
+                        <?= file_download_link('library/attachment/download', (int) $att['id'], (string) $att['original_name'], $att['stored_path'] ?? null) ?>
                         <span class="text-muted">（<?= e(format_size((int) $att['size'])) ?>）</span>
                     </span>
                     <form method="post" action="?r=admin/library/attachments/delete"

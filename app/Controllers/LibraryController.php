@@ -23,7 +23,7 @@ use App\Support\View;
 use RuntimeException;
 
 /**
- * 备课区（课件/作业库）：两棵按类型独立的文件夹树（深度 ≤3），条目经编辑归入文件夹。
+ * 备课区（课件/作业库）：两棵按类型独立的文件夹树（深度 ≤3），条目可单独编辑或批量移动/删除。
  * 导入课程 = 逻辑快照：复制业务行、共享同一 files 行（file_id 引用）；
  * 模板修改/删除只影响之后的导入，不影响已导入的课程副本。
  */
@@ -101,6 +101,92 @@ final class LibraryController extends BaseController
             'folderOptions' => $this->folderOptions($type),
             'maxDepth' => $this->folders->maxDepth(),
         ];
+    }
+
+    public function itemBatch(): void
+    {
+        $admin = $this->requireUser(AuthService::TYPE_ADMIN);
+        $this->requireCsrf();
+
+        $type = (string) ($_POST['item_type'] ?? '');
+        if (!in_array($type, self::TYPES, true)) {
+            $this->notFound('类型不正确。');
+        }
+        $returnFolderId = (int) ($_POST['return_folder_id'] ?? 0) ?: null;
+        $redirect = '?r=' . self::TYPE_ROUTES[$type] . ($returnFolderId !== null ? '&folder_id=' . $returnFolderId : '');
+        $rawIds = $_POST['ids'] ?? [];
+        $ids = is_array($rawIds) ? array_values(array_unique(array_filter(array_map('intval', $rawIds)))) : [];
+        if ($ids === []) {
+            Session::flash('error', '请先选择要操作的条目。');
+            redirect($redirect);
+        }
+        $action = (string) ($_POST['action'] ?? '');
+        if (!in_array($action, ['move', 'delete'], true)) {
+            Session::flash('error', '批量操作类型不正确。');
+            redirect($redirect);
+        }
+
+        $items = [];
+        foreach ($ids as $id) {
+            $item = $type === 'handout'
+                ? $this->libraryHandouts->findById($id)
+                : $this->libraryAssignments->findById($id);
+            if ($item === null) {
+                Session::flash('error', '部分条目已不存在，请刷新列表后重试；本次未执行任何操作。');
+                redirect($redirect);
+            }
+            $items[] = $item;
+        }
+
+        if ($action === 'move') {
+            $folderId = $this->itemFolderIdFromRequest($type);
+            Database::transaction(function () use ($type, $items, $folderId): void {
+                foreach ($items as $item) {
+                    $type === 'handout'
+                        ? $this->libraryHandouts->move((int) $item['id'], $folderId)
+                        : $this->libraryAssignments->move((int) $item['id'], $folderId);
+                }
+            });
+            foreach ($items as $item) {
+                $this->logs->addAuditLog('admin', (int) $admin['id'], 'library.' . $type . '_move', 'library_' . $type, (string) $item['id'], '批量移动到文件夹：' . ($folderId ?? '根目录'), $this->ip());
+            }
+            Session::flash('success', '已移动 ' . count($items) . ' 个' . self::TYPE_NAMES[$type] . '。');
+            redirect($redirect);
+        }
+
+        $this->storage->transactional(function () use ($type, $items): void {
+            $paths = Database::transaction(function () use ($type, $items): array {
+                $paths = [];
+                foreach ($items as $item) {
+                    if ($type === 'handout') {
+                        $this->libraryHandouts->delete((int) $item['id']);
+                        $path = $this->files->deleteIfUnused((int) $item['file_id']);
+                        if ($path !== null) {
+                            $paths[] = $path;
+                        }
+                        continue;
+                    }
+                    foreach ($this->libraryAssignments->listAttachments((int) $item['id']) as $attachment) {
+                        $this->libraryAssignments->removeAttachment((int) $attachment['id']);
+                        $path = $this->files->deleteIfUnused((int) $attachment['file_id']);
+                        if ($path !== null) {
+                            $paths[] = $path;
+                        }
+                    }
+                    $this->libraryAssignments->delete((int) $item['id']);
+                }
+                return $paths;
+            });
+            foreach ($paths as $path) {
+                $this->storage->delete($path);
+            }
+        });
+        foreach ($items as $item) {
+            $this->logs->addAuditLog('admin', (int) $admin['id'], 'library.' . $type . '_delete', 'library_' . $type, (string) $item['id'], $item['title'] . '（批量删除）', $this->ip());
+        }
+
+        Session::flash('success', '已删除 ' . count($items) . ' 个' . self::TYPE_NAMES[$type] . '；已导入的课程副本不受影响。');
+        redirect($redirect);
     }
 
     // ---- 文件夹 ----

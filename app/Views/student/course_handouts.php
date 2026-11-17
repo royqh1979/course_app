@@ -7,15 +7,16 @@
 <?php else: ?>
 <div class="list-group">
     <?php foreach ($handouts as $handout): ?>
-    <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
-       href="?r=handout/download&id=<?= (int) $handout['id'] ?>">
+    <?php $handoutExists = storage_file_exists($handout['stored_path'] ?? null); ?>
+    <a class="list-group-item list-group-item-action<?= $handoutExists ? '' : ' link-primary text-decoration-line-through' ?> d-flex justify-content-between align-items-center"
+       href="?r=handout/download&id=<?= (int) $handout['id'] ?>"<?= $handoutExists ? '' : ' title="文件已缺失"' ?>>
         <span>
             <strong><?= e($handout['title']) ?></strong>
             <?php if (!empty($handout['description'])): ?>
                 <span class="text-muted ms-2"><?= e($handout['description']) ?></span>
             <?php endif; ?>
         </span>
-        <span class="text-muted small text-nowrap ms-2"><?= e(format_size((int) $handout['size'])) ?>　下载</span>
+        <span class="text-muted small text-nowrap ms-2"><?= e(format_size((int) $handout['size'])) ?>　<?= $handoutExists ? '下载' : '文件已缺失' ?></span>
     </a>
     <?php endforeach; ?>
 </div>

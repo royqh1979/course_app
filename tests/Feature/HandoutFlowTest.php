@@ -283,4 +283,37 @@ final class HandoutFlowTest extends FeatureTestCase
         $this->assertSame(302, $res->status);
         $this->assertSame('offline', (new HandoutRepository())->findById((int) $handout['id'])['status']);
     }
+
+    public function testMissingHandoutFileIsStruckThroughOnAdminAndStudentPages(): void
+    {
+        $courseId = $this->setupCourseWithStudent();
+        $admin = new HttpClient(self::$baseUrl);
+        $this->loginAdmin($admin);
+        $page = $admin->get('/?r=admin/courses/handouts&id=' . $courseId);
+        $admin->upload('/?r=admin/handouts/store', 'file', $this->makePdf(), '缺失讲义.pdf', [
+            '_csrf' => $page->csrfToken() ?? '',
+            'course_id' => (string) $courseId,
+            'title' => '缺失讲义',
+        ]);
+        $handout = (new HandoutRepository())->listByCourse($courseId)[0];
+        $admin->post('/?r=admin/handouts/publish', [
+            '_csrf' => $page->csrfToken() ?? '',
+            'id' => (string) $handout['id'],
+        ]);
+        $student = new HttpClient(self::$baseUrl);
+        $this->login($student, 'student', '2024001', 'student-pass-123');
+
+        $href = 'href="?r=handout/download&id=' . $handout['id'] . '"';
+        $this->assertStringContainsString($href, $admin->get('/?r=admin/courses/handouts&id=' . $courseId)->body);
+        $this->assertStringContainsString($href, $student->get('/?r=student/course/handouts&id=' . $courseId)->body);
+
+        unlink(rtrim((string) App::config('storage_path'), '/\\') . '/' . $handout['stored_path']);
+        $adminPage = $admin->get('/?r=admin/courses/handouts&id=' . $courseId)->body;
+        $studentPage = $student->get('/?r=student/course/handouts&id=' . $courseId)->body;
+        $this->assertStringContainsString('text-decoration-line-through', $adminPage);
+        $this->assertStringContainsString('text-decoration-line-through', $studentPage);
+        $this->assertStringContainsString('文件已缺失', $studentPage);
+        $this->assertStringContainsString($href, $adminPage, '缺失文件仍保留下载链接供验证');
+        $this->assertStringContainsString($href, $studentPage, '缺失文件仍保留下载链接供验证');
+    }
 }

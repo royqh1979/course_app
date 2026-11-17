@@ -639,6 +639,51 @@
         });
     }
 
+    /* 备课区条目多选：全选本页、显示已选数量，未选择时禁用批量按钮。 */
+    function initLibraryBatch() {
+        var forms = document.querySelectorAll('form[data-library-batch]');
+        for (var i = 0; i < forms.length; i++) {
+            (function (form) {
+                var items = document.querySelectorAll('input[data-batch-item="' + form.id + '"]');
+                var buttons = document.querySelectorAll('[data-batch-submit="' + form.id + '"]');
+                var checkAll = document.querySelector('[data-check-all="' + form.id + '"]');
+                var count = document.querySelector('[data-batch-count="' + form.id + '"]');
+
+                function update() {
+                    var selected = 0;
+                    for (var j = 0; j < items.length; j++) {
+                        if (items[j].checked) {
+                            selected++;
+                        }
+                    }
+                    for (var k = 0; k < buttons.length; k++) {
+                        buttons[k].disabled = selected === 0;
+                    }
+                    if (count) {
+                        count.firstChild.nodeValue = selected > 0 ? '已选 ' + selected + ' 项' : '勾选条目后可批量操作';
+                    }
+                    if (checkAll) {
+                        checkAll.checked = items.length > 0 && selected === items.length;
+                        checkAll.indeterminate = selected > 0 && selected < items.length;
+                    }
+                }
+
+                for (var j = 0; j < items.length; j++) {
+                    items[j].addEventListener('change', update);
+                }
+                if (checkAll) {
+                    checkAll.addEventListener('change', function () {
+                        for (var j = 0; j < items.length; j++) {
+                            items[j].checked = checkAll.checked;
+                        }
+                        update();
+                    });
+                }
+                update();
+            })(forms[i]);
+        }
+    }
+
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function () {
             init();
@@ -647,6 +692,7 @@
             initImportBatch();
             initAsyncActions();
             initSaveBack();
+            initLibraryBatch();
         });
     } else {
         init();
@@ -655,5 +701,6 @@
         initImportBatch();
         initAsyncActions();
         initSaveBack();
+        initLibraryBatch();
     }
 })();

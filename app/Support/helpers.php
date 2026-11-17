@@ -28,6 +28,23 @@ function format_size(int $bytes): string
     return $bytes . ' B';
 }
 
+function storage_file_exists(?string $storedPath): bool
+{
+    if ($storedPath === null || $storedPath === '') {
+        return false;
+    }
+    $storage = rtrim((string) \App\Support\App::config('storage_path'), '/\\');
+    return is_file($storage . '/' . $storedPath);
+}
+
+function file_download_link(string $route, int $id, string $name, ?string $storedPath): string
+{
+    $state = storage_file_exists($storedPath)
+        ? ''
+        : ' class="link-primary text-decoration-line-through" title="文件已缺失"';
+    return '<a href="?r=' . e($route) . '&id=' . $id . '"' . $state . '>' . e($name) . '</a>';
+}
+
 /**
  * 静态资源 URL（带版本号）：以 public/ 下相对路径引用，追加 ?v=filemtime。
  * 文件内容一变 URL 即变，浏览器必拉新版，配合 Nginx 对 assets 的 immutable 长缓存，

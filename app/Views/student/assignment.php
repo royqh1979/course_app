@@ -35,10 +35,11 @@ $canSubmit = $submitBlock === null;
 <h2 class="h6">附件</h2>
 <div class="list-group mb-3">
     <?php foreach ($attachments as $att): ?>
-    <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
-       href="?r=attachment/download&id=<?= (int) $att['id'] ?>">
+    <?php $attachmentExists = storage_file_exists($att['stored_path'] ?? null); ?>
+    <a class="list-group-item list-group-item-action<?= $attachmentExists ? '' : ' link-primary text-decoration-line-through' ?> d-flex justify-content-between align-items-center"
+       href="?r=attachment/download&id=<?= (int) $att['id'] ?>"<?= $attachmentExists ? '' : ' title="文件已缺失"' ?>>
         <span><?= e($att['original_name']) ?></span>
-        <span class="text-muted small"><?= e(format_size((int) $att['size'])) ?>　下载</span>
+        <span class="text-muted small"><?= e(format_size((int) $att['size'])) ?>　<?= $attachmentExists ? '下载' : '文件已缺失' ?></span>
     </a>
     <?php endforeach; ?>
 </div>
@@ -58,7 +59,7 @@ $canSubmit = $submitBlock === null;
     <ul class="mb-1">
         <?php foreach ($submissionFiles as $sf): ?>
         <li>
-            <a href="?r=submission/download&id=<?= (int) $sf['id'] ?>"><?= e($sf['original_name']) ?></a>
+            <?= file_download_link('submission/download', (int) $sf['id'], (string) $sf['original_name'], $sf['stored_path'] ?? null) ?>
             <span class="text-muted">（<?= e(format_size((int) $sf['size'])) ?>）</span>
         </li>
         <?php endforeach; ?>

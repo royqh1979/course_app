@@ -58,6 +58,12 @@ final class LibraryAssignmentRepository
         ]);
     }
 
+    public function move(int $id, ?int $folderId): void
+    {
+        $stmt = $this->db()->prepare('UPDATE library_assignments SET folder_id = :folder_id WHERE id = :id');
+        $stmt->execute(['folder_id' => $folderId, 'id' => $id]);
+    }
+
     public function findById(int $id): ?array
     {
         $stmt = $this->db()->prepare('SELECT * FROM library_assignments WHERE id = :id LIMIT 1');
@@ -165,7 +171,7 @@ final class LibraryAssignmentRepository
     public function listAttachments(int $libraryAssignmentId): array
     {
         $stmt = $this->db()->prepare(
-            'SELECT a.*, f.original_name, f.size
+            'SELECT a.*, f.original_name, f.stored_path, f.size
              FROM library_assignment_attachments a INNER JOIN files f ON f.id = a.file_id
              WHERE a.library_assignment_id = :laid ORDER BY a.id'
         );

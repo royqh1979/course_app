@@ -644,4 +644,41 @@ final class SubmissionFlowTest extends FeatureTestCase
         $this->assertStringContainsString('恶意.exe', $edit->body);
         unlink($exe);
     }
+
+    public function testMissingAttachmentAndSubmissionFilesAreStruckThrough(): void
+    {
+        $courseId = $this->setupCourse();
+        $assignmentId = $this->makeAssignment($courseId);
+        (new AssignmentRepository())->setStatus($assignmentId, 'published');
+        $admin = new HttpClient(self::$baseUrl);
+        $this->loginAdmin($admin);
+        $page = $admin->get('/?r=admin/assignments/edit&id=' . $assignmentId);
+        $admin->upload('/?r=admin/assignments/attachments/add', 'file', $this->makeZip(), '缺失附件.zip', [
+            '_csrf' => $page->csrfToken() ?? '',
+            'id' => (string) $assignmentId,
+        ]);
+
+        $student = new HttpClient(self::$baseUrl);
+        $this->loginStudent($student);
+        $this->studentSubmit($student, $assignmentId, $this->makeZip(), '缺失提交.zip');
+        $attachment = (new \App\Repositories\AttachmentRepository())->listByAssignment($assignmentId)[0];
+        $submission = (new SubmissionRepository())->findByAssignmentAndStudent($assignmentId, 1);
+        $submissionFile = (new SubmissionRepository())->listFiles((int) $submission['id'])[0];
+        $storage = rtrim((string) App::config('storage_path'), '/\\');
+        unlink($storage . '/' . $attachment['stored_path']);
+        unlink($storage . '/' . $submissionFile['stored_path']);
+
+        $studentPage = $student->get('/?r=student/assignment&id=' . $assignmentId)->body;
+        $this->assertSame(2, substr_count($studentPage, 'text-decoration-line-through'));
+        $this->assertStringContainsString('href="?r=attachment/download&id=' . $attachment['id'] . '"', $studentPage);
+        $this->assertStringContainsString('href="?r=submission/download&id=' . $submissionFile['id'] . '"', $studentPage);
+
+        $submissionsPage = $admin->get('/?r=admin/assignments/submissions&id=' . $assignmentId)->body;
+        $statsPage = $admin->get('/?r=admin/assignments/stats&id=' . $assignmentId)->body;
+        foreach ([$submissionsPage, $statsPage] as $body) {
+            $this->assertStringContainsString('text-decoration-line-through', $body);
+            $this->assertStringContainsString('缺失提交.zip', $body);
+            $this->assertStringContainsString('href="?r=submission/download&id=' . $submissionFile['id'] . '"', $body);
+        }
+    }
 }

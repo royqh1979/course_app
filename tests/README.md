@@ -39,3 +39,5 @@
 | 学生提交多附件（一次提交多文件、整单事务、重交整体替换、按文件下载权限复检） | `Feature/SubmissionFlowTest::testSubmitMultipleFilesAtOnce`、`testSubmitMultipleFilesRejectsWholeBatchOnBadFile`、`Feature/GradingFlowTest`、`Integration/TeachingFlowTest::testListByAssignmentForGrading` |
 | 测试存储隔离（`APP_ENV=test` 走临时存储目录，测试不得触碰生产 storage） | 全部 feature/integration 用例（`config.php` 环境分支 + phpunit.xml `APP_ENV=test`） |
 | 维护脚本（以 `www-data` 执行；备份包/日志可验证；备份与日志目录缺失或不可写时提前失败；多层目录中的已登记文件不会被误删） | `Integration/MaintenanceScriptTest` |
+| 备课区条目多选与批量操作（本页全选、课件/作业批量移动与删除、无效 ID 整批拒绝、附件引用回收） | `Feature/LibraryFlowTest::testBatchMoveAndDeleteLibraryItems` |
+| 文件缺失展示（教师/学生页删除线提示，仍保留下载链接；讲义、附件、提交、统计页） | `Unit/FileLinkTest`、`Feature/HandoutFlowTest::testMissingHandoutFileIsStruckThroughOnAdminAndStudentPages`、`Feature/SubmissionFlowTest::testMissingAttachmentAndSubmissionFilesAreStruckThrough` |

@@ -147,6 +147,7 @@ match ([$method, $route]) {
     ['GET', 'admin/library'] => $libraryController->index(),
     ['GET', 'admin/library/handouts'] => $libraryController->handouts(),
     ['GET', 'admin/library/assignments'] => $libraryController->assignments(),
+    ['POST', 'admin/library/items/batch'] => $libraryController->itemBatch(),
     ['POST', 'admin/library/folders/store'] => $libraryController->folderStore(),
     ['POST', 'admin/library/folders/rename'] => $libraryController->folderRename(),
     ['POST', 'admin/library/folders/delete'] => $libraryController->folderDelete(),

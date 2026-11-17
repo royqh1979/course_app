@@ -627,4 +627,102 @@ final class LibraryFlowTest extends FeatureTestCase
         $this->assertCount(1, $atts);
         $this->assertSame(200, $admin->get('/?r=library/attachment/download&id=' . $atts[0]['id'])->status, '附件可下载');
     }
+
+    public function testBatchMoveAndDeleteLibraryItems(): void
+    {
+        $admin = new HttpClient(self::$baseUrl);
+        $this->loginAdmin($admin);
+        $this->uploadTemplate($admin, '批量课件A');
+        $this->uploadTemplate($admin, '批量课件B');
+        $handouts = new LibraryHandoutRepository();
+        $handoutIds = array_map('intval', array_column($handouts->listAll(), 'id'));
+        $this->assertCount(2, $handoutIds);
+
+        $assignments = new \App\Repositories\LibraryAssignmentRepository();
+        foreach (['批量作业A', '批量作业B'] as $title) {
+            $assignments->create([
+                'title' => $title,
+                'requirements' => '',
+                'allowed_extensions' => 'zip',
+                'max_file_size' => 10 * 1024 * 1024,
+                'allow_late' => true,
+                'folder_id' => null,
+            ]);
+        }
+        $assignmentIds = array_map('intval', array_column($assignments->listAll(), 'id'));
+
+        $folders = new \App\Repositories\LibraryFolderRepository();
+        $handoutFolderId = $folders->create(null, '批量课件目录', 'handout');
+        $assignmentFolderId = $folders->create(null, '批量作业目录', 'assignment');
+
+        $page = $admin->get('/?r=admin/library/handouts');
+        $this->assertSame(200, $page->status);
+        $this->assertSame(2, substr_count($page->body, 'name="ids[]"'));
+        $this->assertStringContainsString('data-check-all="library-handout-batch"', $page->body);
+        $res = $admin->post('/?r=admin/library/items/batch', [
+            '_csrf' => $page->csrfToken() ?? '',
+            'item_type' => 'handout',
+            'action' => 'move',
+            'ids' => $handoutIds,
+            'folder_id' => (string) $handoutFolderId,
+            'return_folder_id' => '',
+        ]);
+        $this->assertSame(302, $res->status);
+        $this->assertCount(2, $handouts->listByFolder($handoutFolderId));
+        $this->assertSame([], $handouts->listByFolder(null));
+
+        $page = $admin->get('/?r=admin/library/assignments');
+        $this->assertSame(2, substr_count($page->body, 'name="ids[]"'));
+        $res = $admin->post('/?r=admin/library/items/batch', [
+            '_csrf' => $page->csrfToken() ?? '',
+            'item_type' => 'assignment',
+            'action' => 'move',
+            'ids' => $assignmentIds,
+            'folder_id' => (string) $assignmentFolderId,
+            'return_folder_id' => '',
+        ]);
+        $this->assertSame(302, $res->status);
+        $this->assertCount(2, $assignments->listByFolder($assignmentFolderId));
+
+        $edit = $admin->get('/?r=admin/library/assignments/edit&id=' . $assignmentIds[0]);
+        $admin->upload('/?r=admin/library/attachments/add', 'file', $this->makePdf(), '批量附件.pdf', [
+            '_csrf' => $edit->csrfToken() ?? '',
+            'id' => (string) $assignmentIds[0],
+        ]);
+        $attachments = $assignments->listAttachments($assignmentIds[0]);
+        $this->assertCount(1, $attachments);
+
+        $page = $admin->get('/?r=admin/library/handouts&folder_id=' . $handoutFolderId);
+        $res = $admin->post('/?r=admin/library/items/batch', [
+            '_csrf' => $page->csrfToken() ?? '',
+            'item_type' => 'handout',
+            'action' => 'delete',
+            'ids' => [$handoutIds[0], 999999],
+            'return_folder_id' => (string) $handoutFolderId,
+        ]);
+        $this->assertSame(302, $res->status);
+        $this->assertCount(2, $handouts->listAll(), '任一条目失效时整批不删除');
+
+        $res = $admin->post('/?r=admin/library/items/batch', [
+            '_csrf' => $page->csrfToken() ?? '',
+            'item_type' => 'handout',
+            'action' => 'delete',
+            'ids' => $handoutIds,
+            'return_folder_id' => (string) $handoutFolderId,
+        ]);
+        $this->assertSame(302, $res->status);
+        $this->assertSame([], $handouts->listAll());
+
+        $page = $admin->get('/?r=admin/library/assignments&folder_id=' . $assignmentFolderId);
+        $res = $admin->post('/?r=admin/library/items/batch', [
+            '_csrf' => $page->csrfToken() ?? '',
+            'item_type' => 'assignment',
+            'action' => 'delete',
+            'ids' => $assignmentIds,
+            'return_folder_id' => (string) $assignmentFolderId,
+        ]);
+        $this->assertSame(302, $res->status);
+        $this->assertSame([], $assignments->listAll());
+        $this->assertSame(0, (int) \App\Support\Database::pdo()->query('SELECT COUNT(*) FROM files')->fetchColumn(), '批量删除后无遗留文件引用');
+    }
 }

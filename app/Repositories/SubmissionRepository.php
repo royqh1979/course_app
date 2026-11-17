@@ -88,7 +88,7 @@ final class SubmissionRepository
         }
         $placeholders = implode(',', array_fill(0, count($submissionIds), '?'));
         $stmt = $this->db()->prepare(
-            "SELECT sf.submission_id, sf.id, sf.file_id, f.original_name, f.size
+            "SELECT sf.submission_id, sf.id, sf.file_id, f.original_name, f.stored_path, f.size
              FROM submission_files sf INNER JOIN files f ON f.id = sf.file_id
              WHERE sf.submission_id IN ({$placeholders})
              ORDER BY sf.id"

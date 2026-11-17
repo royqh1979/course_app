@@ -95,7 +95,7 @@ final class HandoutRepository
      */
     public function listByCourse(int $courseId, bool $publishedOnly = false, ?Pagination $pagination = null): array
     {
-        $sql = 'SELECT h.*, f.original_name, f.size
+        $sql = 'SELECT h.*, f.original_name, f.stored_path, f.size
                 FROM handouts h INNER JOIN files f ON f.id = h.file_id
                 WHERE h.course_id = :course_id';
         if ($publishedOnly) {

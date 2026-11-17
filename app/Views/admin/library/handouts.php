@@ -88,18 +88,40 @@
     </form>
 </div>
 
+<form method="post" action="?r=admin/library/items/batch" id="library-handout-batch" data-library-batch>
+    <?= Csrf::field() ?>
+    <input type="hidden" name="item_type" value="handout">
+    <input type="hidden" name="return_folder_id" value="<?= $currentFolderId ?? '' ?>">
+</form>
+<div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-2">
+    <span class="small text-muted" data-batch-count="library-handout-batch">勾选条目后可批量操作</span>
+    <div class="d-flex gap-1 flex-wrap">
+        <select class="form-select form-select-sm w-auto" name="folder_id" form="library-handout-batch" aria-label="批量移动目标文件夹">
+            <option value=""<?= $currentFolderId === null ? ' selected' : '' ?>>根目录</option>
+            <?php foreach ($folderOptions as $option): ?>
+            <option value="<?= (int) $option['id'] ?>"<?= $currentFolderId === (int) $option['id'] ? ' selected' : '' ?>>
+                <?= str_repeat('　', $option['depth'] - 1) ?><?= e($option['name']) ?>
+            </option>
+            <?php endforeach; ?>
+        </select>
+        <button type="submit" name="action" value="move" form="library-handout-batch" class="btn btn-sm btn-outline-primary" data-batch-submit="library-handout-batch">批量移动</button>
+        <button type="submit" name="action" value="delete" form="library-handout-batch" class="btn btn-sm btn-outline-danger"
+                data-batch-submit="library-handout-batch" onclick="return confirm('确认删除所有选中的课件？已导入的课程副本不受影响。');">批量删除</button>
+    </div>
+</div>
 <div class="table-responsive">
 <table class="table table-sm table-striped align-middle">
     <thead>
-    <tr><th>标题</th><th>说明</th><th>文件</th><th>更新时间</th><th>操作</th></tr>
+    <tr><th><input class="form-check-input" type="checkbox" data-check-all="library-handout-batch" aria-label="全选本页课件"></th><th>标题</th><th>说明</th><th>文件</th><th>更新时间</th><th>操作</th></tr>
     </thead>
     <tbody>
     <?php foreach ($handouts as $handout): ?>
     <tr>
+        <td><input class="form-check-input" type="checkbox" name="ids[]" value="<?= (int) $handout['id'] ?>" form="library-handout-batch" data-batch-item="library-handout-batch" aria-label="选择课件 <?= e($handout['title']) ?>"></td>
         <td><?= e($handout['title']) ?></td>
         <td><?= e($handout['description'] ?? '') ?></td>
         <td>
-            <a href="?r=library/handout/download&id=<?= (int) $handout['id'] ?>"><?= e($handout['original_name']) ?></a>
+            <?= file_download_link('library/handout/download', (int) $handout['id'], (string) $handout['original_name'], $handout['stored_path'] ?? null) ?>
             <span class="text-muted">（<?= e(format_size((int) $handout['size'])) ?>）</span>
         </td>
         <td><?= e($handout['updated_at']) ?></td>
@@ -115,7 +137,7 @@
     </tr>
     <?php endforeach; ?>
     <?php if ($handouts === []): ?>
-    <tr><td colspan="5" class="text-muted">本文件夹暂无课件。</td></tr>
+    <tr><td colspan="6" class="text-muted">本文件夹暂无课件。</td></tr>
     <?php endif; ?>
     </tbody>
 </table>
