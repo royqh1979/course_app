@@ -90,7 +90,10 @@ $statusText = ['draft' => '草稿', 'published' => '已发布', 'closed' => '已
             <ul class="list-group list-group-flush mb-3">
                 <?php foreach ($attachments as $att): ?>
                 <li class="list-group-item d-flex justify-content-between align-items-center px-0">
-                    <span><?= e($att['original_name']) ?> <span class="text-muted">（<?= e(format_size((int) $att['size'])) ?>）</span></span>
+                    <span>
+                        <?= file_download_link('attachment/download', (int) $att['id'], (string) $att['original_name'], $att['stored_path'] ?? null) ?>
+                        <span class="text-muted">（<?= e(format_size((int) $att['size'])) ?>）</span>
+                    </span>
                     <form method="post" action="?r=admin/assignments/attachments/delete"
                           onsubmit="return confirm('确认删除该附件？');">
                         <?= Csrf::field() ?>

@@ -673,6 +673,12 @@ final class SubmissionFlowTest extends FeatureTestCase
         $this->assertStringContainsString('href="?r=attachment/download&id=' . $attachment['id'] . '"', $studentPage);
         $this->assertStringContainsString('href="?r=submission/download&id=' . $submissionFile['id'] . '"', $studentPage);
 
+        $editPage = $admin->get('/?r=admin/assignments/edit&id=' . $assignmentId)->body;
+        $this->assertStringContainsString('link-primary text-decoration-line-through', $editPage);
+        $this->assertStringContainsString('文件已缺失', $editPage);
+        $this->assertStringContainsString('缺失附件.zip', $editPage);
+        $this->assertStringContainsString('href="?r=attachment/download&id=' . $attachment['id'] . '"', $editPage);
+
         $submissionsPage = $admin->get('/?r=admin/assignments/submissions&id=' . $assignmentId)->body;
         $statsPage = $admin->get('/?r=admin/assignments/stats&id=' . $assignmentId)->body;
         foreach ([$submissionsPage, $statsPage] as $body) {
