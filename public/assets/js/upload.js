@@ -639,7 +639,7 @@
         });
     }
 
-    /* 备课区条目多选：全选本页、显示已选数量，未选择时禁用批量按钮。 */
+    /* 备课区列表与导入页多选：全选当前列表；备课区显示已选数量，未选择时禁用批量按钮。 */
     function initLibraryBatch() {
         var forms = document.querySelectorAll('form[data-library-batch]');
         for (var i = 0; i < forms.length; i++) {

@@ -41,14 +41,18 @@ $linkBuilder = static fn (?int $folderId): string => '?r=' . $importRoute . ($fo
 <?php if ($items === []): ?>
 <div class="alert alert-info"><?= $type === 'handout' ? '本文件夹暂无可用课件' : '本文件夹暂无可用作业' ?><?= $currentFolderId === null && ($folders !== []) ? '，请从左侧文件夹进入' : '' ?>，也可先到 <a href="?r=<?= e($typeRoutes[$type]) ?>">备课区</a> 添加。</div>
 <?php else: ?>
-<form method="post" action="?r=admin/library/import" data-import-batch>
+<form method="post" action="?r=admin/library/import" id="library-import-batch" data-import-batch data-library-batch>
     <?= Csrf::field() ?>
     <input type="hidden" name="course_id" value="<?= (int) $course['id'] ?>">
     <input type="hidden" name="type" value="<?= e($type) ?>">
     <div class="list-group mb-3">
+        <label class="list-group-item d-flex align-items-center gap-2">
+            <input class="form-check-input m-0" type="checkbox" data-check-all="library-import-batch" aria-label="全选当前列表">
+            <strong>全选</strong>
+        </label>
         <?php foreach ($items as $item): ?>
         <label class="list-group-item d-flex align-items-center gap-2 flex-wrap">
-            <input class="form-check-input m-0" type="checkbox" name="template_ids[]" value="<?= (int) $item['id'] ?>">
+            <input class="form-check-input m-0" type="checkbox" name="template_ids[]" value="<?= (int) $item['id'] ?>" data-batch-item="library-import-batch">
             <span>
                 <strong><?= e($item['title']) ?></strong>
                 <?php if ($type === 'handout'): ?>

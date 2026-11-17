@@ -349,11 +349,27 @@ final class LibraryFlowTest extends FeatureTestCase
         $first = $this->uploadTemplate($admin, '第一章课件');
         $second = $this->uploadTemplate($admin, '第二章课件');
 
-        // 导入选择页为复选框，可勾选多项
+        // 讲义与作业导入选择页均可全选或勾选多项
         $select = $admin->get('/?r=admin/library/import&course_id=' . $courseId . '&type=handout');
         $this->assertSame(200, $select->status);
         $this->assertStringContainsString('template_ids[]', $select->body);
         $this->assertStringContainsString('data-import-batch', $select->body);
+        $this->assertStringContainsString('data-check-all="library-import-batch"', $select->body);
+        $this->assertSame(2, substr_count($select->body, 'data-batch-item="library-import-batch"'));
+
+        $libraryAssignments = new \App\Repositories\LibraryAssignmentRepository();
+        $libraryAssignments->create([
+            'title' => '第一章作业',
+            'requirements' => '',
+            'allowed_extensions' => 'zip',
+            'max_file_size' => 10 * 1024 * 1024,
+            'allow_late' => true,
+            'folder_id' => null,
+        ]);
+        $assignmentSelect = $admin->get('/?r=admin/library/import&course_id=' . $courseId . '&type=assignment');
+        $this->assertSame(200, $assignmentSelect->status);
+        $this->assertStringContainsString('data-check-all="library-import-batch"', $assignmentSelect->body);
+        $this->assertStringContainsString('data-batch-item="library-import-batch"', $assignmentSelect->body);
 
         // XHR 单条导入（批量队列每次一个）返回 JSON
         $page = $admin->get('/?r=admin/library/import&course_id=' . $courseId . '&type=handout');
